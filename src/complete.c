@@ -44,7 +44,7 @@ int xjd1_complete(const char *zStmt){
       }
       case '/': {   /* C-style comments */
         if( zStmt[1]!='*' ){
-          token = tkOTHER;
+          zStmt++;
           break;
         }
         zStmt += 2;

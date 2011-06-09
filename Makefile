@@ -7,7 +7,7 @@ TOP = ../xjd1
 #### C Compiler and options for use in building executables that
 #    will run on the platform that is doing the build.
 #
-BCC = gcc -g -O2
+BCC = gcc -g
 
 #### The suffix to add to executable files.  ".exe" for windows.
 #    Nothing for unix.
@@ -19,7 +19,7 @@ EXE =
 #    will run on the target platform.  This is usually the same
 #    as BCC, unless you are cross-compiling.
 #
-TCC = gcc -Wall -Wextra -Os
+TCC = gcc -Wall -g
 #TCC = /opt/mingw/bin/i386-mingw32-gcc -Os
 
 #### Tools used to build a static library.
@@ -28,6 +28,10 @@ AR = ar cr
 #AR = /opt/mingw/bin/i386-mingw32-ar cr
 RANLIB = ranlib
 #RANLIB = /opt/mingw/bin/i386-mingw32-ranlib
+
+### Auxiliary libraries needed to build the shell
+#
+AUXLIB =
 
 #### Extra compiler options needed for programs that use the TCL library.
 #

@@ -15,6 +15,7 @@
 #include "xjd1.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 static void usage(const char *argv0){
@@ -56,7 +57,9 @@ int main(int argc, char **argv){
       rc = xjd1_stmt_new(pDb, zStmt, &pStmt, &n);
       if( rc==XJD1_OK ){
         while( xjd1_stmt_step(pStmt)==XJD1_ROW ){
-          printf("%s\n", xjd1_stmt_value(pStmt));
+          const char *zVal;
+          xjd1_stmt_value(pStmt, &zVal);
+          printf("%s\n", zVal);
         }
       }
       xjd1_stmt_delete(pStmt);

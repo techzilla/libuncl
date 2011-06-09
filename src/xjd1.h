@@ -14,9 +14,15 @@
 #ifndef _XJD1_H
 #define _XJD1_H
 
-/* Error codes */
+/* Return codes */
 #define XJD1_OK       0      /* No error */
-#define XDJ1_ERROR    1      /* Generic error */
+#define XJD1_ERROR    1      /* Generic error */
+#define XJD1_MISUSE   2      /* Misuse of the interface */
+#define XJD1_NOMEM    3      /* Out of heap memory */
+#define XJD1_UNKNOWN  4      /* Unknown configuration option */
+
+#define XJD1_ROW      200    /* Another row available */
+#define XJD1_DONE     201    /* query complete */
 
 
 /* Execution context */
@@ -54,4 +60,4 @@ int xjd1_stmt_value(xjd1_stmt*, const char**);
 /* Return true if zStmt is a complete query statement */
 int xjd1_complete(const char *zStmt);
 
-#define _XJD1_H
+#endif /* _XJD1_H */

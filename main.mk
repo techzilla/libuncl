@@ -34,7 +34,9 @@ TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP)
 
 # Object files for the SQLite library.
 #
+LIBOBJ+= complete.o conn.o context.o
 LIBOBJ+= parse.o
+LIBOBJ+= sqlite3.o stmt.o
 
 # All of the source code files.
 #
@@ -44,17 +46,33 @@ SRC = \
 # Generated source code files
 #
 SRC += \
+  main.c \
   parse.c \
-  parse.h
+  parse.y \
+  xjd1.h \
+  xjd1Int.h
 
 # Header files used by all library source files.
 #
 HDR = \
-   parse.h
+   parse.h \
+   $(TOP)/src/xjd1.h \
+   $(TOP)/src/xjd1Int.h
 
 # This is the default Makefile target.
 #
-all:	parse.c
+all:	xjd1
+
+# The shell program
+#
+xjd1:	libxjd1.a $(TOP)/src/shell.c
+	$(TCCX) -o xjd1 $(TOP)/src/shell.c libxjd1.a $(AUXLIB)
+
+# The library
+#
+libxjd1.a:	$(LIBOBJ)
+	$(AR) libxjd1.a $(LIBOBJ)
+	$(RANLIB) libxjd1.a
 
 # Rules to build the LEMON compiler generator
 #
@@ -66,9 +84,8 @@ lemon:	$(TOP)/tool/lemon.c $(TOP)/src/lempar.c
 # applies to:
 #
 #     parse.o
-#     opcodes.o
 #
-%.o: %.c $(HDR)
+parse.o: parse.c $(HDR)
 	$(TCCX) -c $<
 
 # Rules to build individual *.o files from files in the src directory.
@@ -80,12 +97,13 @@ lemon:	$(TOP)/tool/lemon.c $(TOP)/src/lempar.c
 #
 parse.h:	parse.c
 
-parse.c:	$(TOP)/src/parse.y lemon $(TOP)/addopcodes.awk
+parse.c:	$(TOP)/src/parse.y lemon
 	cp $(TOP)/src/parse.y .
 	rm -f parse.h
 	./lemon $(OPTS) parse.y
-	mv parse.h parse.h.temp
-	$(NAWK) -f $(TOP)/addopcodes.awk parse.h.temp >parse.h
+
+sqlite3.o:	$(TOP)/src/sqlite3.c $(TOP)/src/sqlite3.h
+	$(TCCX) -c -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOADEXTENSION $<
 
 clean:	
 	rm -f *.o

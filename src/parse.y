@@ -21,8 +21,8 @@
 // The type of the data attached to each token is Token.  This is also the
 // default type for non-terminals.
 //
-%token_type {Token}
-%default_type {Token}
+%token_type {int}
+%default_type {int}
 
 // The generated parser function takes a 4th argument as follows:
 %extra_argument {void *pParse}
@@ -35,6 +35,7 @@
 // code file that implements the parser.
 //
 %include {
+#include "xjd1Int.h"
 
 /*
 ** Disable all error recovery processing in the parser push-down
