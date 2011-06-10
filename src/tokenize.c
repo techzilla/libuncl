@@ -14,12 +14,6 @@
 #include "xjd1Int.h"
 
 /*
-** Extra token codes
-*/
-#define TK_SPACE    1000
-#define TK_ILLEGAL  1001
-
-/*
 ** The following 256 byte lookup table is used to support built-in
 ** equivalents to the following standard library functions:
 **

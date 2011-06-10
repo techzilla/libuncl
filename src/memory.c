@@ -66,6 +66,11 @@ void *xjd1PoolMalloc(Pool *p, int N){
     return x;
   }
 }
+void *xjd1PoolMallocZero(Pool *p, int N){
+  void *x = xjd1PoolMalloc(p,N);
+  if( x ) memset(x, 0, (N+7)&~7);
+  return x;
+}
 
 /*
 ** Create a duplicate of a string using a memory pool.  Or if pPool==0
