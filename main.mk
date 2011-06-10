@@ -35,8 +35,10 @@ TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP)
 # Object files for the SQLite library.
 #
 LIBOBJ+= complete.o conn.o context.o
+LIBOBJ+= memory.o
 LIBOBJ+= parse.o
-LIBOBJ+= sqlite3.o stmt.o
+LIBOBJ+= sqlite3.o stmt.o string.o
+LIBOBJ+= tokenize.o
 
 # All of the source code files.
 #
@@ -106,5 +108,5 @@ sqlite3.o:	$(TOP)/src/sqlite3.c $(TOP)/src/sqlite3.h
 	$(TCCX) -c -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOADEXTENSION $<
 
 clean:	
-	rm -f *.o
-	rm -f lemon lempar.c parse.*
+	rm -f *.o lib*.a
+	rm -f lemon xjd1 parse.*
