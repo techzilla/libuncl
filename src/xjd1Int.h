@@ -111,7 +111,7 @@ struct ExprItem {
 struct ExprList {
   int nEItem;               /* Number of items on the expression list */
   int nEAlloc;              /* Slots allocated in apEItem[] */
-  ExprItem **apEItem;       /* The expression in the list */
+  ExprItem *apEItem;        /* The expression in the list */
 };
 
 /* A node of an expression */
@@ -161,41 +161,46 @@ struct Query {
   } u;
 };
 
-/* Any command, including but not limited to a query */
-struct Command {
-  int eCmdType;
-  union {
-    struct {
-      Token id;
-    } trans;
-    struct {
-      int ifExists;
-      Token name;
-    } crtab;
-  } u;
-};
-
+/* A Data Source is a representation of a term out of the FROM clause. */
 struct DataSrc {
-  int eDSType;
-  Token asId;
+  int eDSType;              /* Source type */
+  Token asId;               /* The identifier after the AS keyword */
   union {
-    struct {
-      DataSrc *pLeft;
-      DataSrc *pRight;
+    struct {                /* For a join.  eDSType==TK_COMMA */
+      DataSrc *pLeft;          /* Data source on the left */
+      DataSrc *pRight;         /* Data source on the right */
     } join;
-    struct {
-      Token name;
+    struct {                /* For a named table.  eDSType==TK_ID */
+      Token name;              /* The table name */
     } tab;
-    struct {
-      DataSrc *pNext;
-      Token opName;
-      ExprList *pList;
+    struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
+      DataSrc *pNext;          /* Data source to the left */
+      Token opName;            /* "EACH" or "FLATTEN" */
+      ExprList *pList;         /* List of arguments */
     } flatten;
-    struct {
-      Query *q;
+    struct {                /* A subquery.  eDSType==TK_SELECT */
+      Query *q;                /* The subquery */
     } subq;
   } u;
 };
+
+/* Any command, including but not limited to a query */
+struct Command {
+  int eCmdType;             /* Type of command */
+  union {
+    struct {                /* Transaction control operations */
+      Token id;                /* Transaction name */
+    } trans;
+    struct {                /* Create or drop table */
+      int ifExists;            /* IF [NOT] EXISTS clause */
+      Token name;              /* Name of table */
+    } crtab;
+    struct {                /* Query statement */
+      Query *pQuery;           /* The query */
+    } q;
+  } u;
+};
+
 
 
 /******************************** context.c **********************************/
@@ -213,6 +218,7 @@ void *xjd1PoolMallocZero(Pool*, int);
 char *xjd1PoolDup(Pool*, const char *, int);
 
 /******************************** string.c ***********************************/
+int xjd1Strlen30(const char *);
 void xjd1StringInit(String*, Pool*, int);
 String *xjd1StringNew(Pool*, int);
 int xjd1StringAppend(String*, const char*, int);
@@ -221,8 +227,8 @@ int xjd1StringAppend(String*, const char*, int);
 #define xjd1StringTruncate(S)  ((S)->nUsed=0)
 void xjd1StringClear(String*);
 void xjd1StringDelete(String*);
-int xjd1StringVAppendf(String*, const char*, va_list);
-int xjd1StringAppendf(String, const char*, ...);
+int xjd1StringVAppendF(String*, const char*, va_list);
+int xjd1StringAppendF(String*, const char*, ...);
 
 
 /******************************** tokenize.c *********************************/
@@ -232,7 +238,7 @@ int xjd1StringAppendf(String, const char*, ...);
 #define xjd1Isdigit(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x04)
 #define xjd1Isxdigit(x)  (xjd1CtypeMap[(unsigned char)(x)]&0x08)
 #define xjd1Isident(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x46)
-
+int xjd1RunParser(xjd1_stmt*, const char*, int*);
 
 
 #endif /* _XJD1INT_H */

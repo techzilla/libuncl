@@ -350,6 +350,8 @@ int xjd1RunParser(
   int lastTokenParsed = 0;
   int nErr = 0;
   extern void *xjd1ParserAlloc(void*(*)(size_t));
+  extern void xjd1ParserFree(void*, void(*)(void*));
+  extern void xjd1Parser(void*,int,Token,Parse*);
 
   *pN = 0;
   pEngine = xjd1ParserAlloc(malloc);
@@ -390,6 +392,7 @@ abort_parse:
     }
     xjd1Parser(pEngine, 0, sParse.sTok, &sParse);
   }
+  pStmt->pCmd = sParse.pCmd;
   xjd1ParserFree(pEngine, free);
   return nErr;
 }

@@ -44,14 +44,16 @@
 #define YYNOERRORRECOVERY 1
 
 /*
-** Make yytestcase() is not used
+** Make yytestcase() be a no-op
 */
 #define yytestcase(X)
 
 } // end %include
 
 // Input is a single XJD1 command
-input ::= cmd SEMI.
+%type cmd {Command*}
+%destructor cmd {(void)p;}
+input ::= cmd(X) SEMI.   {p->pCmd = X;}
 
 /////////////////////////// Expression Processing /////////////////////////////
 //
@@ -123,7 +125,7 @@ input ::= cmd SEMI.
       pList->nEAlloc = 4;
     }
     if( pList->nEAlloc<=pList->nEItem ){
-      ExprItem **pNew;
+      ExprItem *pNew;
       pNew = xjd1PoolMalloc(p->pPool, sizeof(ExprItem)*pList->nEAlloc*2);
       if( pNew==0 ) return pList;
       memcpy(pNew, pList->apEItem, pList->nEItem*sizeof(ExprItem));
@@ -194,7 +196,14 @@ nexprlist(A) ::= nexprlist(X) COMMA expr(Y).  {A = apndExpr(p,X,Y,0);}
 
 //////////////////////// The SELECT statement /////////////////////////////////
 //
-cmd ::= select.
+cmd(A) ::= select(X).  {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_SELECT;
+    pNew->u.q.pQuery = X;
+  }
+  A = pNew;
+}
 
 %left UNION EXCEPT.
 %left INTERSECT.
@@ -286,43 +295,101 @@ selcol ::= expr AS ID.
 // A complete FROM clause.
 //
 %type from {DataSrc*}
-from(A) ::= .                  {A = 0;}
-from(A) ::= FROM fromlist.     {A = 0;}
-fromlist ::= fromitem.
-fromlist ::= fromlist COMMA fromitem.
-fromitem ::= ID.
-fromitem ::= ID AS ID.
-fromitem ::= LP select RP.
-fromitem ::= fromitem FLATTENOP LP eachexpr_list RP.
+%type fromlist {DataSrc*}
+%type fromitem {DataSrc*}
+%include {
+  /* Create a new data source that is a named table */
+  static DataSrc *tblDataSrc(Parse *p, Token *pTab, Token *pAs){
+    DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eDSType = TK_ID;
+      pNew->u.tab.name = *pTab;
+      if( pAs ) pNew->asId = *pAs;
+    }
+    return pNew;
+  }
 
-eachexpr ::= expr.
-eachexpr ::= expr AS ID.
-eachexpr_list ::= eachexpr.
-eachexpr_list ::= eachexpr_list COMMA eachexpr.
+  /* Create a new data source that is a join */
+  static DataSrc *joinDataSrc(Parse *p, DataSrc *pLeft, DataSrc *pRight){
+    DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eDSType = TK_COMMA;
+      pNew->u.join.pLeft = pLeft;
+      pNew->u.join.pLeft = pRight;
+    }
+    return pNew;
+  }
+
+  /* Create a new subquery data source */
+  static DataSrc *subqDataSrc(Parse *p, Query *pSubq, Token *pAs){
+    DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eDSType = TK_SELECT;
+      pNew->u.subq.q = pSubq;
+      pNew->asId = *pAs;
+    }
+    return pNew;
+  }
+
+  /* Create a new data source that is a FLATTEN or EACH operator */
+  static DataSrc *flattenDataSrc(
+    Parse *p,
+    DataSrc *pLeft,
+    Token *pOp,
+    ExprList *pArgs
+  ){
+    DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eDSType = TK_FLATTENOP;
+      pNew->u.flatten.pNext = pLeft;
+      pNew->u.flatten.opName = *pOp;
+      pNew->u.flatten.pList = pArgs;
+    }
+    return pNew;
+  }
+}
+from(A) ::= .                                    {A = 0;}
+from(A) ::= FROM fromlist(X).                    {A = X;}
+fromlist(A) ::= fromitem(X).                     {A = X;}
+fromlist(A) ::= fromlist(X) COMMA fromitem(Y).   {A = joinDataSrc(p,X,Y);}
+fromitem(A) ::= ID(X).                           {A = tblDataSrc(p,&X,0);}
+fromitem(A) ::= ID(X) AS ID(Y).                  {A = tblDataSrc(p,&X,&Y);}
+fromitem(A) ::= LP select(X) RP AS ID(Y).        {A = subqDataSrc(p,X,&Y);}
+fromitem(A) ::= fromitem(X) FLATTENOP(Y) LP eachexpr_list(Z) RP.
+                                                 {A = flattenDataSrc(p,X,&Y,Z);}
+
+%type eachexpr_list {ExprList*}
+eachexpr_list(A) ::= expr(Y).                         {A = apndExpr(p,0,Y,0);}
+eachexpr_list(A) ::= expr(Y) AS ID(Z).                {A = apndExpr(p,0,Y,&Z);}
+eachexpr_list(A) ::= eachexpr_list(X) COMMA expr(Y).  {A = apndExpr(p,X,Y,0);}
+eachexpr_list(A) ::= eachexpr_list(X) COMMA expr(Y) AS ID(Z).
+                                                      {A = apndExpr(p,X,Y,&Z);}
 
 %type groupby_opt {GroupByHaving}
-groupby_opt ::= .
-groupby_opt ::= GROUP BY exprlist.
-groupby_opt ::= GROUP BY exprlist HAVING expr.
+groupby_opt(A) ::= .                            {A.pGroupBy=0; A.pHaving=0;}
+groupby_opt(A) ::= GROUP BY exprlist(X).        {A.pGroupBy=X; A.pHaving=0;}
+groupby_opt(A) ::= GROUP BY exprlist(X) HAVING expr(Y).
+                                                {A.pGroupBy=X; A.pHaving=Y;}
 
 %type orderby_opt {ExprList*}
-orderby_opt ::= .
-orderby_opt ::= ORDER BY sortlist.
-sortlist ::= sortlist COMMA sortitem sortorder.
-sortlist ::= sortitem sortorder.
-sortitem ::= expr.
-sortorder ::= ASCENDING.
-sortorder ::= DESCENDING.
-sortorder ::= .
+%type sortlist {ExprList*}
+orderby_opt(A) ::= .                          {A = 0;}
+orderby_opt(A) ::= ORDER BY sortlist(X).      {A = X;}
+sortlist(A) ::= sortlist(X) COMMA expr(Y) sortorder(Z).
+                                              {A = apndExpr(p,X,Y,Z.n?&Z:0);}
+sortlist(A) ::= expr(Y) sortorder(Z).         {A = apndExpr(p,0,Y,Z.n?&Z:0);}
+sortorder(A) ::= ASCENDING(X).    {A = X;}
+sortorder(A) ::= DESCENDING(X).   {A = X;}
+sortorder(A) ::= .                {A.z=""; A.n=0;}
 
 %type limit_opt {LimitOffset}
-limit_opt ::= .
-limit_opt ::= LIMIT expr.
-limit_opt ::= LIMIT expr OFFSET expr. 
+limit_opt(A) ::= .                             {A.pLimit=0; A.pOffset=0;}
+limit_opt(A) ::= LIMIT expr(X).                {A.pLimit=X; A.pOffset=0;}
+limit_opt(A) ::= LIMIT expr(X) OFFSET expr(Y). {A.pLimit=X; A.pOffset=Y;}
 
 %type where_opt {Expr*}
-where_opt ::= .
-where_opt ::= WHERE expr.
+where_opt(A) ::= .                  {A = 0;}
+where_opt(A) ::= WHERE expr(X).     {A = X;}
 
 ///////////////////// TRANSACTIONS ////////////////////////////
 //
