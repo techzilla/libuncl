@@ -104,6 +104,8 @@ static const struct {
   { TK_FUNCTION,         "TK_FUNCTION"        },
   { TK_SPACE,            "TK_SPACE"           },
   { TK_ILLEGAL,          "TK_ILLEGAL"         },
+  { TK_CREATETABLE,      "TK_CREATETABLE"     },
+  { TK_DROPTABLE,        "TK_DROPTABLE"       },
 };
 
 /*
@@ -128,6 +130,29 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       xjd1TraceQuery(pOut, indent+3, pCmd->u.q.pQuery);
       break;
     }
+    case TK_CREATETABLE: {
+      xjd1StringAppendF(pOut, "%*sCreate-Table: \"%.*s\" if-not-exists=%d\n",
+         indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
+         pCmd->u.crtab.ifExists);
+      break;
+    }
+    case TK_DROPTABLE: {
+      xjd1StringAppendF(pOut, "%*sDrop-Table: \"%.*s\" if-exists=%d\n",
+         indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
+         pCmd->u.crtab.ifExists);
+      break;
+    }
+    case TK_INSERT: {
+      xjd1StringAppendF(pOut, "%*sInsert: %.*s\n",
+         indent, "", pCmd->u.ins.name.n, pCmd->u.ins.name.z);
+      if( pCmd->u.ins.jvalue.n ){
+         xjd1StringAppendF(pOut, "%*s value=%.*s\n",
+             indent, "", pCmd->u.ins.jvalue.n, pCmd->u.ins.jvalue.z);
+      }else{
+         xjd1TraceQuery(pOut, indent+3, pCmd->u.ins.pQuery);
+      }
+      break; 
+    }
     default: {
       xjd1StringAppendF(pOut, "%*seCmdType = %s (%d)\n",
           indent, "", xjd1TokenName(pCmd->eCmdType), pCmd->eCmdType);
@@ -142,8 +167,8 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
 */
 void xjd1TraceQuery(String *pOut, int indent, const Query *p){
   if( p==0 ) return;
-  xjd1StringAppendF(pOut, "%*seQType = %s (%d)\n",
-          indent, "", xjd1TokenName(p->eQType), p->eQType);
+  xjd1StringAppendF(pOut, "%*seQType = %s\n",
+          indent, "", xjd1TokenName(p->eQType));
   switch( p->eQType ){
     case TK_SELECT: {
       if( p->u.simple.pCol ){

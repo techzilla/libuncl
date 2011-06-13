@@ -405,17 +405,34 @@ cmd ::= COMMIT ID.
 
 ///////////////////// The CREATE TABLE statement ////////////////////////////
 //
-cmd ::= CREATE TABLE ifnotexists tabname.
-ifnotexists ::= .
-ifnotexists ::= IF NOT EXISTS.
-tabname ::= ID.
-tabname ::= ID DOT ID.
+cmd(A) ::= CREATE TABLE ifnotexists(B) tabname(N). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_CREATETABLE;
+    pNew->u.crtab.ifExists = B;
+    pNew->u.crtab.name = N;
+  }
+  A = pNew;
+}
+%type ifnotexists {int}
+ifnotexists(A) ::= .                    {A = 0;}
+ifnotexists(A) ::= IF NOT EXISTS.       {A = 1;}
+tabname(A) ::= ID(X).                   {A = X;}
 
 ////////////////////////// The DROP TABLE /////////////////////////////////////
 //
-cmd ::= DROP TABLE ifexists tabname.
-ifexists ::= IF EXISTS.
-ifexists ::= .
+cmd(A) ::= DROP TABLE ifexists(B) tabname(N). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_DROPTABLE;
+    pNew->u.crtab.ifExists = B;
+    pNew->u.crtab.name = N;
+  }
+  A = pNew;
+}
+%type ifexists {int}
+ifexists(A) ::= IF EXISTS.  {A = 1;}
+ifexists(A) ::= .           {A = 0;}
 
 
 /////////////////////////// The DELETE statement /////////////////////////////
@@ -432,5 +449,21 @@ setitem ::= lvalue EQ jexpr.
 
 ////////////////////////// The INSERT command /////////////////////////////////
 //
-cmd ::= INSERT INTO tabname VALUE jvalue.
-cmd ::= INSERT INTO tabname select.
+cmd(A) ::= INSERT INTO tabname(N) VALUE jvalue(V). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_INSERT;
+    pNew->u.ins.name = N;
+    pNew->u.ins.jvalue = V;
+  }
+  A = pNew;
+}
+cmd(A) ::= INSERT INTO tabname(N) select(Q). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_INSERT;
+    pNew->u.ins.name = N;
+    pNew->u.ins.pQuery = Q;
+  }
+  A = pNew;
+}

@@ -322,8 +322,45 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       return i;
     }
     case '[': {
-      for(i=1, c=z[0]; c!=']' && (c=z[i])!=0; i++){}
-      *tokenType = c==']' ? TK_ID : TK_ILLEGAL;
+      int depth = 1;
+      *tokenType = TK_ILLEGAL;
+      for(i=1; (c=z[i])!=0; i++){
+        if( c=='"' ){
+          for(i++; (c=z[i])!=0 && c!='"'; i++){
+            if( c=='\\' && z[i+1] ) i++;
+          }
+          if( c==0 ) return i;
+        }else if( c=='[' ){
+          depth++;
+        }else if( c==']' ){
+          depth--;
+          if( depth==0 ){
+            *tokenType = TK_JVALUE;
+            return i+1;
+          }
+        }
+      }
+      return i;
+    }
+    case '{': {
+      int depth = 1;
+      *tokenType = TK_ILLEGAL;
+      for(i=1; (c=z[i])!=0; i++){
+        if( c=='"' ){
+          for(i++; (c=z[i])!=0 && c!='"'; i++){
+            if( c=='\\' && z[i+1] ) i++;
+          }
+          if( c==0 ) return i;
+        }else if( c=='{' ){
+          depth++;
+        }else if( c=='}' ){
+          depth--;
+          if( depth==0 ){
+            *tokenType = TK_JVALUE;
+            return i+1;
+          }
+        }
+      }
       return i;
     }
     default: {

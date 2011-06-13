@@ -38,6 +38,8 @@
 #define TK_FUNCTION     100
 #define TK_SPACE        101
 #define TK_ILLEGAL      102
+#define TK_CREATETABLE  103
+#define TK_DROPTABLE    104
 
 typedef unsigned char u8;
 typedef struct Command Command;
@@ -204,6 +206,11 @@ struct Command {
     struct {                /* Query statement */
       Query *pQuery;           /* The query */
     } q;
+    struct {                /* Insert */
+      Token name;              /* Table to insert into */
+      Token jvalue;            /* Value to be inserted */
+      Query *pQuery;           /* Query to insert from */
+    } ins;
   } u;
 };
 
