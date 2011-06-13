@@ -211,6 +211,15 @@ struct Command {
       Token jvalue;            /* Value to be inserted */
       Query *pQuery;           /* Query to insert from */
     } ins;
+    struct {                /* Delete */
+      Token name;              /* Table to delete */
+      Expr *pWhere;            /* WHERE clause */
+    } del;
+    struct {                /* Update */
+      Token name;              /* Table to modify */
+      Expr *pWhere;            /* WHERE clause */
+      ExprList *pChng;         /* Alternating lvalve and new value */
+    } update;
   } u;
 };
 

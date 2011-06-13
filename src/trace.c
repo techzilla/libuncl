@@ -153,6 +153,27 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       }
       break; 
     }
+    case TK_DELETE: {
+      xjd1StringAppendF(pOut, "%*sDELETE: %.*s\n",
+         indent, "", pCmd->u.del.name.n, pCmd->u.del.name.z);
+      if( pCmd->u.del.pWhere ){
+         xjd1StringAppendF(pOut, "%*s WHERE ", indent, "");
+         xjd1TraceExpr(pOut, pCmd->u.del.pWhere);
+         xjd1StringAppend(pOut, "\n", 1);
+      }
+      break; 
+    }
+    case TK_UPDATE: {
+      xjd1StringAppendF(pOut, "%*sUPDATE: %.*s\n",
+         indent, "", pCmd->u.update.name.n, pCmd->u.update.name.z);
+      xjd1TraceExprList(pOut, indent+3, pCmd->u.update.pChng);
+      if( pCmd->u.update.pWhere ){
+         xjd1StringAppendF(pOut, "%*s WHERE ", indent, "");
+         xjd1TraceExpr(pOut, pCmd->u.update.pWhere);
+         xjd1StringAppend(pOut, "\n", 1);
+      }
+      break; 
+    }
     default: {
       xjd1StringAppendF(pOut, "%*seCmdType = %s (%d)\n",
           indent, "", xjd1TokenName(pCmd->eCmdType), pCmd->eCmdType);

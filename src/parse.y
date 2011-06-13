@@ -137,7 +137,11 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
       pList->apEItem = pNew;
     }
     pItem = &pList->apEItem[pList->nEItem++];
-    if( pT ) pItem->tkAs = *pT;
+    if( pT ){
+      pItem->tkAs = *pT;
+    }else{
+      memset(&pItem->tkAs, 0, sizeof(pItem->tkAs));
+    }
     pItem->pExpr = pExpr;
     return pList;
   }
@@ -437,15 +441,40 @@ ifexists(A) ::= .           {A = 0;}
 
 /////////////////////////// The DELETE statement /////////////////////////////
 //
-cmd ::= DELETE FROM tabname where_opt.
+cmd(A) ::= DELETE FROM tabname(N) where_opt(W). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_DELETE;
+    pNew->u.del.name = N;
+    pNew->u.del.pWhere = W;
+  }
+  A = pNew;
+}
 
 ////////////////////////// The UPDATE command ////////////////////////////////
 //
-cmd ::= UPDATE tabname SET setlist where_opt.
+cmd(A) ::= UPDATE tabname(N) SET setlist(L) where_opt(W). {
+  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  if( pNew ){
+    pNew->eCmdType = TK_UPDATE;
+    pNew->u.update.name = N;
+    pNew->u.update.pWhere = W;
+    pNew->u.update.pChng = L;
+  }
+  A = pNew;
+}
 
-setlist ::= setlist COMMA setitem.
-setlist ::= setitem.
-setitem ::= lvalue EQ jexpr.
+%type setlist {ExprList*}
+setlist(A) ::= setlist(X) COMMA lvalue(Y) EQ jexpr(Z). {
+   A = apndExpr(p,X,Y,0);
+   A = apndExpr(p,A,Z,0);
+}
+setlist(A) ::= lvalue(Y) EQ jexpr(Z). {
+   A = apndExpr(p,0,Y,0);
+   A = apndExpr(p,A,Z,0);
+}
+
+
 
 ////////////////////////// The INSERT command /////////////////////////////////
 //
