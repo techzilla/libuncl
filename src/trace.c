@@ -310,6 +310,7 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
     case TK_NE:
     case TK_BITAND:
     case TK_BITOR:
+    case TK_BITNOT:
     case TK_LSHIFT:
     case TK_RSHIFT:
     case TK_PLUS:
@@ -319,12 +320,19 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
     case TK_REM:
     case TK_CONCAT:
     case TK_IS:
+    case TK_NOT:
     case TK_NOT_IS: {
-      xjd1StringAppend(pOut, "(", 1);
-      xjd1TraceExpr(pOut, p->u.bi.pLeft);
-      xjd1StringAppendF(pOut, ") %s (", xjd1TokenName(p->eType));
-      xjd1TraceExpr(pOut, p->u.bi.pRight);
-      xjd1StringAppend(pOut, ")", 1);
+      if( p->u.bi.pRight ){
+        xjd1StringAppend(pOut, "(", 1);
+        xjd1TraceExpr(pOut, p->u.bi.pLeft);
+        xjd1StringAppendF(pOut, ") %s (", xjd1TokenName(p->eType));
+        xjd1TraceExpr(pOut, p->u.bi.pRight);
+        xjd1StringAppend(pOut, ")", 1);
+      }else{
+        xjd1StringAppendF(pOut, "%s (", xjd1TokenName(p->eType));
+        xjd1TraceExpr(pOut, p->u.bi.pLeft);
+        xjd1StringAppend(pOut, ")", 1);
+      }
       break;
     }
     default: {
