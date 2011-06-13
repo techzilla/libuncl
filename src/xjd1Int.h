@@ -34,6 +34,7 @@
 ** found in parse.h 
 */
 #define TK_NOT_LIKEOP   (TK_LIKEOP+128)
+#define TK_NOT_IS       (TK_IS+128)
 #define TK_FUNCTION     100
 #define TK_SPACE        101
 #define TK_ILLEGAL      102
@@ -250,7 +251,7 @@ const char *xjd1TokenName(int);
 void xjd1TraceCommand(String*,int,const Command*);
 void xjd1TraceQuery(String*,int,const Query*);
 void xjd1TraceDataSrc(String*,int,const DataSrc*);
-void xjd1TraceExpr(String*,int,const Expr*);
+void xjd1TraceExpr(String*,const Expr*);
 void xjd1TraceExprList(String*,int, const ExprList*);
 
 #endif /* _XJD1INT_H */

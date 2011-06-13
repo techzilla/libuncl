@@ -124,18 +124,20 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     if( pList==0 ){
       pList = xjd1PoolMallocZero(p->pPool, sizeof(*pList)+4*sizeof(ExprItem));
       if( pList==0 ) return 0;
-      pList->nEAlloc = 4;
+      pList->nEAlloc = 0;
     }
     if( pList->nEAlloc<=pList->nEItem ){
       ExprItem *pNew;
-      pNew = xjd1PoolMalloc(p->pPool, sizeof(ExprItem)*pList->nEAlloc*2);
+      int n = pList->nEAlloc*2;
+      if( n==0 ) n = 4;
+      pNew = xjd1PoolMalloc(p->pPool, sizeof(ExprItem)*n);
       if( pNew==0 ) return pList;
       memcpy(pNew, pList->apEItem, pList->nEItem*sizeof(ExprItem));
-      pList->nEAlloc *= 2;
+      pList->nEAlloc = n;
       pList->apEItem = pNew;
     }
     pItem = &pList->apEItem[pList->nEItem++];
-    pItem->tkAs = *pT;
+    if( pT ) pItem->tkAs = *pT;
     pItem->pExpr = pExpr;
     return pList;
   }
@@ -181,7 +183,7 @@ likeop(A) ::= LIKEOP(OP).                        {A = @OP;}
 likeop(A) ::= NOT LIKEOP(OP).                    {A = 128+@OP;}
 expr(A) ::= expr(X) likeop(OP) expr(Y). [LIKEOP] {A = biExpr(p,X,OP,Y);}
 expr(A) ::= expr(X) IS(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) IS NOT expr(Y).              {A = biExpr(p,X,TK_IS+128,Y);}
+expr(A) ::= expr(X) IS NOT expr(Y).              {A = biExpr(p,X,TK_NOT_IS,Y);}
 expr(A) ::= NOT(OP) expr(X).                     {A = biExpr(p,X,@OP,0);}
 expr(A) ::= BITNOT(OP) expr(X).                  {A = biExpr(p,X,@OP,0);}
 expr(A) ::= MINUS(OP) expr(X). [BITNOT]          {A = biExpr(p,X,@OP,0);}
@@ -287,12 +289,14 @@ oneselect(A) ::= SELECT selcollist_opt(S) from(F) where_opt(W)
 // values of the SELECT statement.
 //
 %type selcollist_opt {ExprList*}
-selcollist_opt(A) ::= .                 {A = 0;}
-selcollist_opt(A) ::= selcollist.       {A = 0;}
-selcollist ::= selcol.
-selcollist ::= selcollist COMMA selcol.
-selcol ::= expr.
-selcol ::= expr AS ID.
+%type selcollist {ExprList*}
+selcollist_opt(A) ::= .                             {A = 0;}
+selcollist_opt(A) ::= selcollist(X).                {A = X;}
+selcollist(A) ::= expr(Y).                          {A = apndExpr(p,0,Y,0);}
+selcollist(A) ::= expr(Y) AS ID(Z).                 {A = apndExpr(p,0,Y,&Z);}
+selcollist(A) ::= selcollist(X) COMMA expr(Y).      {A = apndExpr(p,X,Y,0);}
+selcollist(A) ::= selcollist(X) COMMA expr(Y) AS ID(Z).
+                                                    {A = apndExpr(p,X,Y,&Z);}
 
 // A complete FROM clause.
 //
@@ -317,7 +321,7 @@ selcol ::= expr AS ID.
     if( pNew ){
       pNew->eDSType = TK_COMMA;
       pNew->u.join.pLeft = pLeft;
-      pNew->u.join.pLeft = pRight;
+      pNew->u.join.pRight = pRight;
     }
     return pNew;
   }

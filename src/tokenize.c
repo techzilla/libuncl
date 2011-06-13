@@ -401,7 +401,7 @@ int xjd1RunParser(
   }
 abort_parse:
   *pN = i;
-  if( zCode[i]==0 && nErr==0 && sParse.errCode==XJD1_OK ){
+  if( nErr==0 && sParse.errCode==XJD1_OK ){
     if( lastTokenParsed!=TK_SEMI ){
       xjd1Parser(pEngine, TK_SEMI, sParse.sTok, &sParse);
     }
