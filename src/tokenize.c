@@ -1,17 +1,25 @@
 /*
-** 2011 June 09
+** Copyright (c) 2011 D. Richard Hipp
 **
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
+** This program is free software; you can redistribute it and/or
+** modify it under the terms of the Simplified BSD License (also
+** known as the "2-Clause License" or "FreeBSD License".)
 **
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
+** This program is distributed in the hope that it will be useful,
+** but without any warranty; without even the implied warranty of
+** merchantability or fitness for a particular purpose.
+**
+** Author contact information:
+**   drh@hwaci.com
+**   http://www.hwaci.com/drh/
 **
 *************************************************************************
 ** The tokenizer
 */
 #include "xjd1Int.h"
+#ifndef NDEBUG
+#include <stdio.h>
+#endif
 
 /*
 ** The following 256 byte lookup table is used to support built-in
@@ -339,6 +347,7 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
 ** error message.
 */
 int xjd1RunParser(
+  xjd1 *pConn,
   xjd1_stmt *pStmt,
   const char *zCode,
   int *pN
@@ -353,6 +362,12 @@ int xjd1RunParser(
   extern void xjd1ParserFree(void*, void(*)(void*));
   extern void xjd1Parser(void*,int,Token,Parse*);
 
+#ifndef NDEBUG
+  if( pConn->parserTrace ){
+    extern void xjd1ParserTrace(FILE*, char*);
+    xjd1ParserTrace(stdout, "parser> ");
+  }
+#endif
   *pN = 0;
   pEngine = xjd1ParserAlloc(malloc);
   if( pEngine==0 ) return XJD1_NOMEM;
@@ -379,7 +394,7 @@ int xjd1RunParser(
       default: {
         xjd1Parser(pEngine, tokenType, sParse.sTok, &sParse);
         lastTokenParsed = tokenType;
-        if( sParse.errCode ) goto abort_parse;
+        if( sParse.errCode || tokenType==TK_SEMI ) goto abort_parse;
         break;
       }
     }

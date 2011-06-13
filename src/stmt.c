@@ -1,12 +1,17 @@
 /*
-** 2011 June 09
+** Copyright (c) 2011 D. Richard Hipp
 **
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
+** This program is free software; you can redistribute it and/or
+** modify it under the terms of the Simplified BSD License (also
+** known as the "2-Clause License" or "FreeBSD License".)
 **
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
+** This program is distributed in the hope that it will be useful,
+** but without any warranty; without even the implied warranty of
+** merchantability or fitness for a particular purpose.
+**
+** Author contact information:
+**   drh@hwaci.com
+**   http://www.hwaci.com/drh/
 **
 *************************************************************************
 ** Interfaces to prepared statment objects.
@@ -30,7 +35,7 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   p->pNext = pConn->pStmt;
   pConn->pStmt = p;
   if( pN==0 ) pN = &dummy;
-  xjd1RunParser(p, zStmt, pN);
+  xjd1RunParser(pConn, p, zStmt, pN);
   return XJD1_OK;
 }
 
@@ -85,4 +90,18 @@ int xjd1_stmt_rewind(xjd1_stmt *pStmt){
 int xjd1_stmt_value(xjd1_stmt *pStmt, const char **pzValue){
   *pzValue = 0;
   return XJD1_MISUSE;
+}
+
+/*
+** Construct a human-readable listing of a prepared statement showing
+** its internal structure.  Used for debugging and analysis only.
+**
+** The return string is obtained from malloc and must be freed by
+** the caller.
+*/
+char *xjd1_stmt_debug_listing(xjd1_stmt *p){
+  String x;
+  xjd1StringInit(&x, 0, 0);
+  xjd1TraceCommand(&x, 0, p->pCmd);
+  return x.zBuf;
 }

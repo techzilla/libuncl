@@ -38,7 +38,7 @@ LIBOBJ+= complete.o conn.o context.o
 LIBOBJ+= memory.o
 LIBOBJ+= parse.o
 LIBOBJ+= sqlite3.o stmt.o string.o
-LIBOBJ+= tokenize.o
+LIBOBJ+= tokenize.o trace.o
 
 # All of the source code files.
 #
@@ -58,6 +58,7 @@ SRC += \
 #
 HDR = \
    parse.h \
+   parse_txt.h \
    $(TOP)/src/xjd1.h \
    $(TOP)/src/xjd1Int.h
 
@@ -90,6 +91,11 @@ lemon:	$(TOP)/tool/lemon.c $(TOP)/src/lempar.c
 parse.o: parse.c $(HDR)
 	$(TCCX) -c $<
 
+# Construct the parse_txt.h file from parse.h
+#
+parse_txt.h:	parse.c $(TOP)/mkparsetxth.awk
+	awk -f $(TOP)/mkparsetxth.awk <parse.h >parse_txt.h
+
 # Rules to build individual *.o files from files in the src directory.
 #
 %.o: $(TOP)/src/%.c $(HDR)
@@ -109,4 +115,4 @@ sqlite3.o:	$(TOP)/src/sqlite3.c $(TOP)/src/sqlite3.h
 
 clean:	
 	rm -f *.o lib*.a
-	rm -f lemon xjd1 parse.*
+	rm -f lemon xjd1 parse.* parse_txt.h

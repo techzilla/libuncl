@@ -1,12 +1,17 @@
 /*
-** 2011 June 09
+** Copyright (c) 2011 D. Richard Hipp
 **
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
+** This program is free software; you can redistribute it and/or
+** modify it under the terms of the Simplified BSD License (also
+** known as the "2-Clause License" or "FreeBSD License".)
 **
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
+** This program is distributed in the hope that it will be useful,
+** but without any warranty; without even the implied warranty of
+** merchantability or fitness for a particular purpose.
+**
+** Author contact information:
+**   drh@hwaci.com
+**   http://www.hwaci.com/drh/
 **
 *************************************************************************
 ** Interface definitions for XJD1
@@ -44,8 +49,11 @@ int xjd1_context_delete(xjd1_context*);
 
 /* Open and close a database connection */
 int xjd1_open(xjd1_context*, const char *zURI, xjd1**);
-int xdj1_config(xjd1*, int, ...);
+int xjd1_config(xjd1*, int, ...);
 int xjd1_close(xjd1*);
+
+/* Operators for xjd1_config() */
+#define XJD1_CONFIG_PARSERTRACE    1
 
 /* Create a new prepared statement */
 int xjd1_stmt_new(xjd1*, const char*, xjd1_stmt**, int*);
@@ -59,5 +67,8 @@ int xjd1_stmt_value(xjd1_stmt*, const char**);
 
 /* Return true if zStmt is a complete query statement */
 int xjd1_complete(const char *zStmt);
+
+/* Show the internal structure of a statement */
+char *xjd1_stmt_debug_listing(xjd1_stmt*);
 
 #endif /* _XJD1_H */

@@ -1,18 +1,20 @@
 /*
-** 2011 May 26
+** Copyright (c) 2011 D. Richard Hipp
 **
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
+** This program is free software; you can redistribute it and/or
+** modify it under the terms of the Simplified BSD License (also
+** known as the "2-Clause License" or "FreeBSD License".)
 **
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
+** This program is distributed in the hope that it will be useful,
+** but without any warranty; without even the implied warranty of
+** merchantability or fitness for a particular purpose.
 **
-*************************************************************************
-** This file contains grammar for XJD1 query language
-** using the lemon parser generator to generate C code that runs
-** the parser.  Lemon will also generate a header file containing
-** numeric codes for all of the tokens.
+** Author contact information:
+**   drh@hwaci.com
+**   http://www.hwaci.com/drh/
+**
+*****************************************************************************
+** Language grammar
 */
 
 // All token codes are small integers with #defines that begin with "TK_"
