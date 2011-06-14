@@ -122,7 +122,7 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
           xjd1StringAppend(pOut, &cSep, 1);
           cSep = ',';
           renderString(pOut, pElem->zLabel);
-          xjd1StringAppend(pOut, ",", 1);
+          xjd1StringAppend(pOut, ":", 1);
           xjd1JsonRender(pOut, pElem->pValue);
         }
         xjd1StringAppend(pOut, "}", 1);

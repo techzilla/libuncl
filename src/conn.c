@@ -100,7 +100,7 @@ PRIVATE void xjd1Unref(xjd1 *pConn){
 PRIVATE void xjd1Error(xjd1 *pConn, int errCode, const char *zFormat, ...){
   va_list ap;
   if( pConn==0 ) return;
-  if( pConn->appendErr ){
+  if( !pConn->appendErr ){
     xjd1StringTruncate(&pConn->errMsg);
   }else if( xjd1StringLen(&pConn->errMsg) ){
     xjd1StringAppend(&pConn->errMsg, "\n", 1);

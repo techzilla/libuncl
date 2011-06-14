@@ -412,7 +412,7 @@ int xjd1RunParser(
   sParse.pConn = pConn;
   sParse.pPool = &pStmt->sPool;
   xjd1StringInit(&sParse.errMsg, &pStmt->sPool, 0);
-  while( zCode[i] && sParse.errCode ){
+  while( zCode[i] && sParse.errCode==0 ){
     assert( i>=0 );
     sParse.sTok.z = &zCode[i];
     sParse.sTok.n = xjd1GetToken((unsigned char*)&zCode[i], &tokenType);

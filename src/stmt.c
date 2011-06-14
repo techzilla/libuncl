@@ -82,20 +82,65 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
     case TK_CREATETABLE: {
       char *zSql;
       int res;
+      char *zErr = 0;
       zSql = sqlite3_mprintf("CREATE TABLE %s \"%!.*w\"(x)",
                  pCmd->u.crtab.ifExists ? "IF NOT EXISTS" : "",
                  pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
-      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, 0);
+      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);
+      if( zErr ){
+        xjd1Error(pStmt->pConn, XJD1_ERROR, "%s", zErr);
+        sqlite3_free(zErr);
+        rc = XJD1_ERROR;
+      }
       sqlite3_free(zSql);
       break;
     }
     case TK_DROPTABLE: {
       char *zSql;
       int res;
+      char *zErr = 0;
       zSql = sqlite3_mprintf("DROP TABLE %s \"%!.*w\"",
                  pCmd->u.crtab.ifExists ? "IF EXISTS" : "",
                  pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
-      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, 0);
+      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);
+      if( zErr ){
+        xjd1Error(pStmt->pConn, XJD1_ERROR, "%s", zErr);
+        sqlite3_free(zErr);
+        rc = XJD1_ERROR;
+      }
+      sqlite3_free(zSql);
+      break;
+    }
+    case TK_INSERT: {
+      JsonNode *pNode;
+      String json;
+      int res;
+      char *zErr;
+      char *zSql;
+      if( pCmd->u.ins.pQuery ){
+        xjd1Error(pStmt->pConn, XJD1_ERROR, 
+                 "INSERT INTO ... SELECT not yet implemented");
+        break;
+      }
+      pNode = xjd1JsonParse(pCmd->u.ins.jvalue.z);
+      if( pNode==0 ){
+        xjd1Error(pStmt->pConn, XJD1_ERROR,
+                  "malformed JSON");
+        break;
+      }
+      xjd1StringInit(&json,0,0);
+      xjd1JsonRender(&json, pNode);
+      xjd1JsonFree(pNode);
+      zSql = sqlite3_mprintf("INSERT INTO \"%.*w\" VALUES('%q')",
+                  pCmd->u.ins.name.n, pCmd->u.ins.name.z,
+                  xjd1StringText(&json));
+      xjd1StringClear(&json);
+      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);
+      if( zErr ){
+        xjd1Error(pStmt->pConn, XJD1_ERROR, "%s", zErr);
+        sqlite3_free(zErr);
+        rc = XJD1_ERROR;
+      }
       sqlite3_free(zSql);
       break;
     }

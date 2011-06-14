@@ -152,13 +152,17 @@ int main(int argc, char **argv){
       if( rc!=XJD1_OK ){
         fprintf(stderr, "ERROR: %s\n", xjd1_errmsg(pDb));
       }else{
+        int res;
         char *zTrace = xjd1_stmt_debug_listing(pStmt);
         if( zTrace ) printf("%s", zTrace);
         free(zTrace);
-        while( xjd1_stmt_step(pStmt)==XJD1_ROW ){
+        while( (res = xjd1_stmt_step(pStmt))==XJD1_ROW ){
           const char *zVal;
           xjd1_stmt_value(pStmt, &zVal);
           printf("%s\n", zVal);
+        }
+        if( res!=XJD1_DONE ){
+          fprintf(stderr, "ERROR: %s\n", xjd1_errmsg(pDb));
         }
       }
       xjd1_stmt_delete(pStmt);
