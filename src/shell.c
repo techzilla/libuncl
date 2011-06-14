@@ -115,7 +115,7 @@ int main(int argc, char **argv){
   if( argc!=2 ) usage(argv[0]);
   rc = xjd1_open(0, argv[1], &pDb);
   if( rc!=XJD1_OK ){
-    fprintf(stderr, "cannot open \"%s\"\n", argv[1]);
+    fprintf(stderr, "cannot open \"%s\": %s\n", argv[1], xjd1_errmsg(pDb));
     exit(1);
   }
   xjd1_config(pDb, XJD1_CONFIG_PARSERTRACE, parserTrace);
@@ -149,7 +149,9 @@ int main(int argc, char **argv){
     if( xjd1_complete(zStmt) ){
       xjd1_stmt *pStmt;
       rc = xjd1_stmt_new(pDb, zStmt, &pStmt, &n);
-      if( rc==XJD1_OK ){
+      if( rc!=XJD1_OK ){
+        fprintf(stderr, "ERROR: %s\n", xjd1_errmsg(pDb));
+      }else{
         char *zTrace = xjd1_stmt_debug_listing(pStmt);
         if( zTrace ) printf("%s", zTrace);
         free(zTrace);

@@ -30,7 +30,9 @@
 
 # This is how we compile
 #
-TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP) 
+TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP)
+TCCX += -DSQLITE_OMIT_LOAD_EXTENSION
+TCCX += -DSQLITE_THREADSAFE=0
 
 # Object files for the SQLite library.
 #

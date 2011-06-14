@@ -18,15 +18,30 @@
 */
 #include "xjd1Int.h"
 
+/*
+** Open a new database connection
+*/
 int xjd1_open(xjd1_context *pContext, const char *zURI, xjd1 **ppNewConn){
   xjd1 *pConn;
+  int rc;
 
   *ppNewConn = pConn = malloc( sizeof(*pConn) );
   if( pConn==0 ) return XJD1_NOMEM;
   memset(pConn, 0, sizeof(*pConn));
   pConn->pContext = pContext;
-  return XJD1_OK;
+  rc = sqlite3_open_v2(zURI, &pConn->db, 
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, 0);
+  if( rc ){
+    xjd1Error(pConn, XJD1_ERROR, "%s", sqlite3_errmsg(pConn->db));
+    sqlite3_close(pConn->db);
+    pConn->db = 0;
+    return XJD1_ERROR;
+  }else{
+    return XJD1_OK;
+  }
 }
+
+/* Configure a database connection */
 int xjd1_config(xjd1 *pConn, int op, ...){
   int rc = XJD1_UNKNOWN;
   va_list ap;
@@ -44,16 +59,54 @@ int xjd1_config(xjd1 *pConn, int op, ...){
   va_end(ap);
   return rc;
 }
+
+/* Close a database connection.  The close does not actually
+** occur until all references to the connection also close.  This
+** means that any prepared statements must also be closed.
+*/
 int xjd1_close(xjd1 *pConn){
   if( pConn==0 ) return XJD1_OK;
   pConn->isDying = 1;
   if( pConn->nRef>0 ) return XJD1_OK;
   xjd1ContextUnref(pConn->pContext);
+  sqlite3_free(pConn->db);
+  xjd1StringClear(&pConn->errMsg);
   free(pConn);
   return XJD1_OK;
 }
 
+/*
+** Report the most recent error.
+*/
+int xjd1_errcode(xjd1 *pConn){
+  return pConn ? pConn->errCode : XJD1_ERROR;
+}
+const char *xjd1_errmsg(xjd1 *pConn){
+  if( pConn==0 ) return "out of memory";
+  return xjd1StringText(&pConn->errMsg);
+}
+
+/* Remove a reference to a database connection.  When the last reference
+** is removed and the database is closed, then memory is deallocated.
+*/
 PRIVATE void xjd1Unref(xjd1 *pConn){
   pConn->nRef--;
   if( pConn->nRef<=0 && pConn->isDying ) xjd1_close(pConn);
+}
+
+/*
+** Change the error message and error code.
+*/
+PRIVATE void xjd1Error(xjd1 *pConn, int errCode, const char *zFormat, ...){
+  va_list ap;
+  if( pConn==0 ) return;
+  if( pConn->appendErr ){
+    xjd1StringTruncate(&pConn->errMsg);
+  }else if( xjd1StringLen(&pConn->errMsg) ){
+    xjd1StringAppend(&pConn->errMsg, "\n", 1);
+  }
+  pConn->errCode = errCode;
+  va_start(ap, zFormat);
+  xjd1StringVAppendF(&pConn->errMsg, zFormat, ap);
+  va_end(ap);
 }

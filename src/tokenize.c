@@ -409,9 +409,10 @@ int xjd1RunParser(
   pEngine = xjd1ParserAlloc(malloc);
   if( pEngine==0 ) return XJD1_NOMEM;
   memset(&sParse, 0, sizeof(sParse));
+  sParse.pConn = pConn;
   sParse.pPool = &pStmt->sPool;
   xjd1StringInit(&sParse.errMsg, &pStmt->sPool, 0);
-  while( zCode[i] ){
+  while( zCode[i] && sParse.errCode ){
     assert( i>=0 );
     sParse.sTok.z = &zCode[i];
     sParse.sTok.n = xjd1GetToken((unsigned char*)&zCode[i], &tokenType);
@@ -438,13 +439,16 @@ int xjd1RunParser(
   }
 abort_parse:
   *pN = i;
+  if( sParse.errCode ) nErr++;
   if( nErr==0 && sParse.errCode==XJD1_OK ){
     if( lastTokenParsed!=TK_SEMI ){
+      sParse.sTok.z = ";";
+      sParse.sTok.n = 1;
       xjd1Parser(pEngine, TK_SEMI, sParse.sTok, &sParse);
     }
     xjd1Parser(pEngine, 0, sParse.sTok, &sParse);
   }
   pStmt->pCmd = sParse.pCmd;
   xjd1ParserFree(pEngine, free);
-  return nErr;
+  return nErr==0 && sParse.errCode==0 && sParse.pCmd!=0 ? XJD1_OK : XJD1_ERROR;
 }

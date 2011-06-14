@@ -34,9 +34,9 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   p->pConn = pConn;
   p->pNext = pConn->pStmt;
   pConn->pStmt = p;
+  p->zCode = xjd1PoolDup(&p->sPool, zStmt, -1);
   if( pN==0 ) pN = &dummy;
-  xjd1RunParser(pConn, p, zStmt, pN);
-  return XJD1_OK;
+  return xjd1RunParser(pConn, p, p->zCode, pN);
 }
 
 /*
@@ -73,7 +73,34 @@ int xjd1_stmt_delete(xjd1_stmt *pStmt){
 ** it completes.
 */
 int xjd1_stmt_step(xjd1_stmt *pStmt){
-  return XJD1_DONE;
+  Command *pCmd;
+  int rc = XJD1_DONE;
+  if( pStmt==0 ) return rc;
+  pCmd = pStmt->pCmd;
+  if( pCmd==0 ) return rc;
+  switch( pCmd->eCmdType ){
+    case TK_CREATETABLE: {
+      char *zSql;
+      int res;
+      zSql = sqlite3_mprintf("CREATE TABLE %s \"%!.*w\"(x)",
+                 pCmd->u.crtab.ifExists ? "IF NOT EXISTS" : "",
+                 pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
+      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, 0);
+      sqlite3_free(zSql);
+      break;
+    }
+    case TK_DROPTABLE: {
+      char *zSql;
+      int res;
+      zSql = sqlite3_mprintf("DROP TABLE %s \"%!.*w\"",
+                 pCmd->u.crtab.ifExists ? "IF EXISTS" : "",
+                 pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
+      res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, 0);
+      sqlite3_free(zSql);
+      break;
+    }
+  }
+  return rc;
 }
 
 /*

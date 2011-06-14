@@ -25,6 +25,7 @@
 #define XJD1_MISUSE   2      /* Misuse of the interface */
 #define XJD1_NOMEM    3      /* Out of heap memory */
 #define XJD1_UNKNOWN  4      /* Unknown configuration option */
+#define XJD1_SYNTAX   5      /* Syntax error */
 
 #define XJD1_ROW      200    /* Another row available */
 #define XJD1_DONE     201    /* query complete */
@@ -54,6 +55,10 @@ int xjd1_close(xjd1*);
 
 /* Operators for xjd1_config() */
 #define XJD1_CONFIG_PARSERTRACE    1
+
+/* Report on recent errors */
+int xjd1_errcode(xjd1*);
+const char *xjd1_errmsg(xjd1*);
 
 /* Create a new prepared statement */
 int xjd1_stmt_new(xjd1*, const char*, xjd1_stmt**, int*);

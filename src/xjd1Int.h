@@ -21,7 +21,7 @@
 
 #include "xjd1.h"
 #include "parse.h"
-#include "xjd1.h"
+#include "sqlite3.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
@@ -68,6 +68,14 @@ struct Pool {
   int nSpace;                       /* Bytes available in pSpace */
 };
 
+/* A variable length string */
+struct String {
+  Pool *pPool;                      /* Memory allocation pool or NULL */
+  char *zBuf;                       /* String content */
+  int nUsed;                        /* Slots used.  Not counting final 0 */
+  int nAlloc;                       /* Space allocated */
+};
+
 /* Execution context */
 struct xjd1_context {
   int nRef;                         /* Reference count */
@@ -82,7 +90,11 @@ struct xjd1 {
   int nRef;                         /* Reference count */
   u8 isDying;                       /* True if has been closed */
   u8 parserTrace;                   /* True to enable parser tracing */
+  u8 appendErr;                     /* append errMsg rather than overwrite */
   xjd1_stmt *pStmt;                 /* list of all prepared statements */
+  sqlite3 *db;                      /* Storage engine */
+  int errCode;                      /* Latest non-zero error code */
+  String errMsg;                    /* Latest error message */
 };
 
 /* A prepared statement */
@@ -95,14 +107,6 @@ struct xjd1_stmt {
   char *zCode;                      /* Text of the query */
   Command *pCmd;                    /* Parsed command */
   char *zErrMsg;                    /* Error message */
-};
-
-/* A variable length string */
-struct String {
-  Pool *pPool;                      /* Memory allocation pool or NULL */
-  char *zBuf;                       /* String content */
-  int nUsed;                        /* Slots used.  Not counting final 0 */
-  int nAlloc;                       /* Space allocated */
 };
 
 /* A token into to the parser */
@@ -143,6 +147,7 @@ struct Expr {
 
 /* Parsing context */
 struct Parse {
+  xjd1 *pConn;                    /* Connect for recording errors */
   Pool *pPool;                    /* Memory allocation pool */
   Command *pCmd;                  /* Results */
   Token sTok;                     /* Last token seen */
@@ -260,6 +265,7 @@ void xjd1ContextUnref(xjd1_context*);
 
 /******************************** conn.c *************************************/
 void xjd1Unref(xjd1*);
+void xjd1Error(xjd1*,int,const char*,...);
 
 /******************************** json.c *************************************/
 JsonNode *xjd1JsonParse(const char *zIn);
