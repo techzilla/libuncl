@@ -17,7 +17,7 @@
 ** This file contains C code that implements a simple command-line
 ** wrapper shell around xjd1.
 */
-#include "xjd1.h"
+#include "xjd1Int.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -106,10 +106,12 @@ int main(int argc, char **argv){
   int nAlloc = 0;
   int isTTY = 1;
   int parserTrace;
+  int testJson;
   const char *zPrompt = "xjd1> ";
   char zLine[2000];
 
   parserTrace = find_option(argv, &argc, "trace", 0, 0)!=0;
+  testJson = find_option(argv, &argc, "json", 0, 0)!=0;
   if( argc!=2 ) usage(argv[0]);
   rc = xjd1_open(0, argv[1], &pDb);
   if( rc!=XJD1_OK ){
@@ -121,6 +123,18 @@ int main(int argc, char **argv){
   while( !feof(stdin) ){
     if( isTTY ) printf("%s", zPrompt);
     if( fgets(zLine, sizeof(zLine), stdin)==0 ) break;
+    if( testJson ){
+      JsonNode *pNode = xjd1JsonParse(zLine);
+      if( pNode ){
+        String out;
+        xjd1StringInit(&out, 0, 0);
+        xjd1JsonRender(&out, pNode);
+        xjd1JsonFree(pNode);
+        printf("%s\n", xjd1StringText(&out));
+        xjd1StringClear(&out);
+      }
+      continue;
+    }
     n = strlen(zLine);
     if( n+nStmt+1 >= nAlloc ){
       nAlloc = nAlloc + n + nStmt + 1000;

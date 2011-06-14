@@ -61,7 +61,7 @@ void renderString(String *pOut, const char *z){
     if( c=='"' || c=='\\' ) n++;
   }
   xjd1StringAppend(pOut, 0, n+3);
-  zOut = xjd1StringText(pOut) + xjd1StringLen(pOut);
+  zOut = xjd1StringText(pOut);
   if( zOut ){
     zOut += xjd1StringLen(pOut);
     zOut[0] = '"';
@@ -134,19 +134,20 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
 
 
 /* JSON parser token types */
-#define JSON_BEGIN_ARRAY    1
-#define JSON_END_ARRAY      2
-#define JSON_COMMA          3
-#define JSON_BEGIN_STRUCT   4
-#define JSON_END_STRUCT     5
-#define JSON_STRING         6
-#define JSON_TRUE           7
-#define JSON_FALSE          8
-#define JSON_NULL           9
-#define JSON_REAL          10
-#define JSON_COLON         11
-#define JSON_EOF           12
-#define JSON_ERROR         13
+#define JSON_FALSE          XJD1_FALSE
+#define JSON_TRUE           XJD1_TRUE
+#define JSON_REAL           XJD1_REAL
+#define JSON_NULL           XJD1_NULL
+#define JSON_STRING         XJD1_STRING
+#define JSON_BEGIN_ARRAY    XJD1_ARRAY
+#define JSON_BEGIN_STRUCT   XJD1_STRUCT
+
+#define JSON_END_ARRAY     20
+#define JSON_COMMA         21
+#define JSON_END_STRUCT    22
+#define JSON_COLON         23
+#define JSON_EOF           24
+#define JSON_ERROR         25
 
 /* State of a JSON string tokenizer */
 typedef struct JsonStr JsonStr;
@@ -178,7 +179,7 @@ void tokenNext(JsonStr *p){
     }
     case '"': {
       char c;
-      for(n=0; (c = z[i+n])!=0 && c!='"'; n++){
+      for(n=1; (c = z[i+n])!=0 && c!='"'; n++){
         if( c=='\\' ) n++;
       }
       if( c=='"' ) n++;
@@ -286,6 +287,47 @@ void tokenNext(JsonStr *p){
   }
 }
 
+/* Convert the current token (which must be a string) into a true
+** string (resolving all of the backslash escapes) and return a pointer
+** to the true string.  Space is obtained form malloc().
+*/
+static char *tokenDequoteString(JsonStr *pIn){
+  const char *zIn;
+  char *zOut;
+  int i, j, n;
+  char c;
+  zIn = &pIn->zIn[pIn->iCur];
+  zOut = malloc( pIn->n );
+  if( zOut==0 ) return 0;
+  assert( zIn[0]=='"' && zIn[pIn->n-1]=='"' );
+  n = pIn->n-1;
+  for(i=1, j=0; i<n; i++){
+    if( zIn[i]!='\\' ){
+      zOut[j++] = zIn[i];
+    }else{
+      i++;
+      c = zIn[i];
+      if( c=='b' ){
+        zOut[j++] = '\b';
+      }else if( c=='f' ){
+        zOut[j++] = '\f';
+      }else if( c=='n' ){
+        zOut[j++] = '\n';
+      }else if( c=='r' ){
+        zOut[j++] = '\r';
+      }else if( c=='t' ){
+        zOut[j++] = '\t';
+      }else if( c=='u' && i<n-4 ){
+
+      }else{
+        zOut[j++] = c;
+      }
+    }
+  }
+  zOut[j] = 0;
+  return zOut;
+}
+
 
 /* Enter point to the first token of the JSON object.
 ** Exit pointing to the first token past end end of the
@@ -299,17 +341,20 @@ static JsonNode *parseJson(JsonStr *pIn){
   pNew->eJType = tokenType(pIn);
   switch( pNew->eJType ){
     case JSON_BEGIN_STRUCT: {
+      JsonStructElem **ppTail;
       tokenNext(pIn);
-      while( tokenType(pIn)!=JSON_END_STRUCT ){
+      if( tokenType(pIn)==JSON_END_STRUCT ) break;
+      ppTail = &pNew->u.pStruct;
+      while( 1 ){
         JsonStructElem *pElem;
         if( tokenType(pIn)!=JSON_STRING ){
           goto json_error; 
         }
         pElem = malloc( sizeof(*pElem) );
         if( pElem==0 ) goto json_error;
-        memset(pElem, 0, sizeof(pElem));
-        pElem->pNext = pNew->u.pStruct;
-        pNew->u.pStruct = pElem;
+        memset(pElem, 0, sizeof(*pElem));
+        *ppTail = pElem;
+        ppTail = &pElem->pNext;
         pElem->zLabel = tokenDequoteString(pIn);
         tokenNext(pIn);
         if( tokenType(pIn)!=JSON_COLON ){
@@ -317,6 +362,14 @@ static JsonNode *parseJson(JsonStr *pIn){
         }
         tokenNext(pIn);
         pElem->pValue = parseJson(pIn);
+        if( tokenType(pIn)==JSON_COMMA ){
+          tokenNext(pIn);
+        }else if( tokenType(pIn)==JSON_END_STRUCT ){
+          tokenNext(pIn);
+          break;
+        }else{
+          goto json_error;
+        }
       }
       break;
     }
@@ -326,7 +379,7 @@ static JsonNode *parseJson(JsonStr *pIn){
       if( tokenType(pIn)==JSON_END_ARRAY ) break;
       while( 1 ){
         if( pNew->u.array.nElem>=nAlloc ){
-          JsonNode *pNewArray;
+          JsonNode **pNewArray;
           nAlloc = nAlloc*2 + 5;
           pNewArray = realloc(pNew->u.array.apElem,
                               sizeof(JsonNode*)*nAlloc);
