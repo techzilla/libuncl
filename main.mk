@@ -35,6 +35,7 @@ TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP)
 # Object files for the SQLite library.
 #
 LIBOBJ+= complete.o conn.o context.o
+LIBOBJ+= json.o
 LIBOBJ+= memory.o
 LIBOBJ+= parse.o
 LIBOBJ+= sqlite3.o stmt.o string.o

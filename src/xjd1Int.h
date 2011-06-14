@@ -47,6 +47,8 @@ typedef struct DataSrc DataSrc;
 typedef struct Expr Expr;
 typedef struct ExprItem ExprItem;
 typedef struct ExprList ExprList;
+typedef struct JsonNode JsonNode;
+typedef struct JsonStructElem JsonStructElem;
 typedef struct Parse Parse;
 typedef struct PoolChunk PoolChunk;
 typedef struct Pool Pool;
@@ -223,13 +225,46 @@ struct Command {
   } u;
 };
 
+/* A single element of a JSON structure */
+struct JsonStructElem {
+  char *zLabel;             /* Label on this element */
+  JsonStructElem *pNext;    /* Next element of the structure */
+  JsonNode *pValue;         /* Value of this element */
+};
 
+/* A single element of a JSON value */
+struct JsonNode {
+  int eJType;               /* Element type */
+  union {
+    double r;               /* Real value */
+    char *z;                /* String value */
+    struct {                /* Array value */
+      int nElem;               /* Number of elements */
+      JsonNode **apElem;       /* Value of each element */
+    } array;
+    JsonStructElem *pStruct;   /* List of structure elements */
+  } u;
+};
+
+/* Values for eJType */
+#define XJD1_FALSE     0
+#define XJD1_TRUE      1
+#define XJD1_REAL      2
+#define XJD1_NULL      3
+#define XJD1_STRING    4
+#define XJD1_ARRAY     5
+#define XJD1_STRUCT    6
 
 /******************************** context.c **********************************/
 void xjd1ContextUnref(xjd1_context*);
 
 /******************************** conn.c *************************************/
 void xjd1Unref(xjd1*);
+
+/******************************** json.c *************************************/
+JsonNode *xjd1JsonParse(const char *zIn);
+void xjd1JsonRender(String*, JsonNode*);
+void xjd1JsonFree(JsonNode*);
 
 /******************************** malloc.c ***********************************/
 Pool *xjd1PoolNew(void);
@@ -254,6 +289,7 @@ int xjd1StringAppendF(String*, const char*, ...);
 
 
 /******************************** tokenize.c *********************************/
+extern const unsigned char xjd1CtypeMap[];
 #define xjd1Isspace(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x01)
 #define xjd1Isalnum(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x06)
 #define xjd1Isalpha(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x02)

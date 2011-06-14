@@ -64,9 +64,11 @@ PRIVATE int xjd1StringAppend(String *pStr, const char *z, int n){
   if( pStr->nUsed + n >= pStr->nAlloc ){
     if( resizeString(pStr, pStr->nAlloc*2 + n + 100) ) return 0;
   }
-  memcpy(&pStr->zBuf[pStr->nUsed], z, n);
-  pStr->nUsed += n;
-  pStr->zBuf[pStr->nUsed] = 0;
+  if( z ){
+    memcpy(&pStr->zBuf[pStr->nUsed], z, n);
+    pStr->nUsed += n;
+    pStr->zBuf[pStr->nUsed] = 0;
+  }
   return n;
 }
 
