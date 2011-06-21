@@ -486,7 +486,7 @@ setlist(A) ::= lvalue(Y) EQ jexpr(Z). {
 ////////////////////////// The INSERT command /////////////////////////////////
 //
 cmd(A) ::= INSERT INTO tabname(N) VALUE jvalue(V). {
-  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
     pNew->u.ins.name = N;
@@ -495,7 +495,7 @@ cmd(A) ::= INSERT INTO tabname(N) VALUE jvalue(V). {
   A = pNew;
 }
 cmd(A) ::= INSERT INTO tabname(N) select(Q). {
-  Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
+  Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
     pNew->u.ins.name = N;
