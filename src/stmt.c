@@ -154,7 +154,7 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
                  "INSERT INTO ... SELECT not yet implemented");
         break;
       }
-      pNode = xjd1JsonParse(pCmd->u.ins.jvalue.z);
+      pNode = xjd1JsonParse(pCmd->u.ins.jvalue.z, pCmd->u.ins.jvalue.n);
       if( pNode==0 ){
         xjd1Error(pStmt->pConn, XJD1_ERROR,
                   "malformed JSON");
@@ -178,6 +178,10 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
     }
     case TK_SELECT: {
       rc = xjd1QueryStep(pStmt->pCmd->u.q.pQuery);
+      break;
+    }
+    case TK_PRAGMA: {
+      rc = xjd1PragmaStep(pStmt);
       break;
     }
   }

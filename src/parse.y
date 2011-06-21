@@ -503,3 +503,24 @@ cmd(A) ::= INSERT INTO tabname(N) select(Q). {
   }
   A = pNew;
 }
+
+////////////////////////// The PRAGMA command /////////////////////////////////
+//
+%include {
+  static Command *makePrag(Parse *p, Token *pName, Token *pValue){
+    Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eCmdType = TK_PRAGMA;
+      pNew->u.prag.name = *pName;
+      if( pValue ){
+        pNew->u.prag.jvalue = *pValue;
+      }else{
+        pNew->u.prag.jvalue.n = 0;
+      }
+    }
+    return pNew;
+  }
+}
+cmd(A) ::= PRAGMA ID(N).                  {A = makePrag(p,&N,0);}
+cmd(A) ::= PRAGMA ID(N) EQ jvalue(V).     {A = makePrag(p,&N,&V);}
+cmd(A) ::= PRAGMA ID(N) LP jvalue(V) RP.  {A = makePrag(p,&N,&V);}

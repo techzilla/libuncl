@@ -39,7 +39,7 @@ TCCX += -DSQLITE_THREADSAFE=0
 LIBOBJ+= complete.o conn.o context.o
 LIBOBJ+= json.o
 LIBOBJ+= memory.o
-LIBOBJ+= parse.o
+LIBOBJ+= parse.o pragma.o
 LIBOBJ+= query.o
 LIBOBJ+= scan.o sqlite3.o stmt.o string.o
 LIBOBJ+= tokenize.o trace.o

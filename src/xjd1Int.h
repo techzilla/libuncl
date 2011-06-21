@@ -49,6 +49,7 @@ typedef struct ExprItem ExprItem;
 typedef struct ExprList ExprList;
 typedef struct JsonNode JsonNode;
 typedef struct JsonStructElem JsonStructElem;
+typedef struct Line Line;
 typedef struct Parse Parse;
 typedef struct PoolChunk PoolChunk;
 typedef struct Pool Pool;
@@ -106,6 +107,7 @@ struct xjd1_stmt {
   u8 isDying;                       /* True if has been closed */
   char *zCode;                      /* Text of the query */
   Command *pCmd;                    /* Parsed command */
+  Line *pLine;                      /* Active lines */
   char *zErrMsg;                    /* Error message */
 };
 
@@ -159,6 +161,7 @@ struct Parse {
 struct Query {
   int eQType;                   /* Query type */
   xjd1_stmt *pStmt;             /* Statement this query is part of */
+  Query *pOuter;                /* Next outer query for a subquery */
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
@@ -182,6 +185,8 @@ struct DataSrc {
   int eDSType;              /* Source type */
   Token asId;               /* The identifier after the AS keyword */
   Query *pQuery;            /* Query this data source services */
+  Line *pOut;               /* Where output of this source is stored */
+  int isOwner;              /* True if this DataSrc owns the pOut line */
   union {
     struct {                /* For a join.  eDSType==TK_COMMA */
       DataSrc *pLeft;          /* Data source on the left */
@@ -189,6 +194,7 @@ struct DataSrc {
     } join;
     struct {                /* For a named table.  eDSType==TK_ID */
       Token name;              /* The table name */
+      sqlite3_stmt *pStmt;     /* Cursor for reading content */
     } tab;
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
@@ -199,6 +205,13 @@ struct DataSrc {
       Query *q;                /* The subquery */
     } subq;
   } u;
+};
+
+/* A line is analogous to a row in an SQL database */
+struct Line {
+  Line *pNext;              /* Next line in a list */
+  Token name;               /* Name of this line */
+  JsonNode *pValue;         /* JSON associated with this line */
 };
 
 /* Any command, including but not limited to a query */
@@ -229,6 +242,10 @@ struct Command {
       Expr *pWhere;            /* WHERE clause */
       ExprList *pChng;         /* Alternating lvalve and new value */
     } update;
+    struct {                /* Pragma */
+      Token name;              /* Pragma name */
+      Token jvalue;            /* Argument or empty string */
+    } prag;
   } u;
 };
 
@@ -270,7 +287,7 @@ void xjd1Unref(xjd1*);
 void xjd1Error(xjd1*,int,const char*,...);
 
 /******************************** json.c *************************************/
-JsonNode *xjd1JsonParse(const char *zIn);
+JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
 void xjd1JsonRender(String*, JsonNode*);
 void xjd1JsonFree(JsonNode*);
 
@@ -281,6 +298,9 @@ void xjd1PoolDelete(Pool*);
 void *xjd1PoolMalloc(Pool*, int);
 void *xjd1PoolMallocZero(Pool*, int);
 char *xjd1PoolDup(Pool*, const char *, int);
+
+/******************************** pragma.c ***********************************/
+int xjd1PragmaStep(xjd1_stmt*);
 
 /******************************** query.c ************************************/
 int xjd1QueryInit(xjd1_stmt*,Query*);

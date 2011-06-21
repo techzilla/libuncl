@@ -124,7 +124,7 @@ int main(int argc, char **argv){
     if( isTTY ) printf("%s", zPrompt);
     if( fgets(zLine, sizeof(zLine), stdin)==0 ) break;
     if( testJson ){
-      JsonNode *pNode = xjd1JsonParse(zLine);
+      JsonNode *pNode = xjd1JsonParse(zLine, -1);
       if( pNode ){
         String out;
         xjd1StringInit(&out, 0, 0);

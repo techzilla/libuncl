@@ -153,6 +153,7 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
 typedef struct JsonStr JsonStr;
 struct JsonStr {
   const char *zIn;        /* Complete input string */
+  int mxIn;               /* Number of characters in input string */
   int iCur;               /* First character of current token */
   int n;                  /* Number of charaters in current token */
   int eType;              /* Type of current token */
@@ -164,27 +165,42 @@ struct JsonStr {
 /* Return a pointer to the string of a token. */
 #define tokenString(X) (&(X)->zIn[(X)->iCur])
 
+/* Return TRUE if z[0..n-1] is the beginning of engineering notation:
+**
+**      [eE](+|-)[0-9]+
+*/
+static int isExp(const char *z, int n){
+  if( n<2 ) return 0;
+  if( z[0]!='e' && z[0]!='E' ) return 0; 
+  if( xjd1Isdigit(z[1]) ) return 1;
+  if( n<3 || (z[1]!='-' && z[1]!='+') ) return 0;
+  if( xjd1Isdigit(z[2]) ) return 1;
+  return 0;
+}
+
 /* Advance to the next token */
-void tokenNext(JsonStr *p){
+static void tokenNext(JsonStr *p){
   int i, n;
   const char *z = p->zIn;
+  int mx = p->mxIn;
+  char c;
+
   i = p->n + p->iCur;
-  while( xjd1Isspace(z[i]) ){ i++; }
+  while( i<mx && xjd1Isspace(z[i]) ){ i++; }
+  if( i>=mx ) goto token_eof;
   p->iCur = i;
-  switch( z[i] ){
+  switch( i<mx ? z[i] : 0 ){
     case 0: {
-      p->n = 0;
-      p->eType = JSON_EOF;
-      break;
+      goto token_eof;
     }
     case '"': {
-      char c;
-      for(n=1; (c = z[i+n])!=0 && c!='"'; n++){
+     for(n=1; i+n<mx && (c = z[i+n])!=0 && c!='"'; n++){
         if( c=='\\' ) n++;
       }
       if( c=='"' ) n++;
+      if( i+n>mx ){ n = mx - i; c = 0; }
       p->n = n;
-      p->eType = JSON_STRING;
+      p->eType = (c=='"' ? JSON_STRING : JSON_ERROR);
       break;
     }
     case '{': {
@@ -218,7 +234,9 @@ void tokenNext(JsonStr *p){
       break;
     }
     case 't': {
-      if( memcmp(&z[i],"true",4)==0 && xjd1Isident(z[i+4])==0 ){
+      if( i+4<=mx && memcmp(&z[i],"true",4)==0
+       && (i+4==mx || xjd1Isident(z[i+4])==0)
+      ){
         p->n = 4;
         p->eType = JSON_TRUE;
       }else{
@@ -228,7 +246,9 @@ void tokenNext(JsonStr *p){
       break;
     }
     case 'f': {
-      if( memcmp(&z[i],"false",5)==0 && xjd1Isident(z[i+5])==0 ){
+      if( i+5<=mx && memcmp(&z[i],"false",5)==0 
+       && (i+5==mx || xjd1Isident(z[i+5])==0)
+      ){
         p->n = 5;
         p->eType = JSON_FALSE;
       }else{
@@ -238,7 +258,9 @@ void tokenNext(JsonStr *p){
       break;
     }
     case 'n': {
-      if( memcmp(&z[i],"null",4)==0 && xjd1Isident(z[i+4])==0 ){
+      if( i+4<=mx && memcmp(&z[i],"null",4)==0
+       && (i+4==mx || xjd1Isident(z[i+4])==0)
+      ){
         p->n = 4;
         p->eType = JSON_NULL;
       }else{
@@ -253,7 +275,7 @@ void tokenNext(JsonStr *p){
       n = 0;
       if( z[i]=='-' ){
         n = 1;
-        if( !xjd1Isdigit(z[i+1]) ){
+        if( i+1>=mx || !xjd1Isdigit(z[i+1]) ){
           p->n = 1;
           p->eType = JSON_ERROR;
           break;
@@ -262,18 +284,15 @@ void tokenNext(JsonStr *p){
       if( z[i+n]=='0' ){
         i++;
       }else{
-        while( xjd1Isdigit(z[i+n]) ) n++;
+        while( i+n<mx && xjd1Isdigit(z[i+n]) ) n++;
       }
-      if( z[i+n]=='.' && xjd1Isdigit(z[i+n+1]) ){
+      if( i+n+1<mx && z[i+n]=='.' && xjd1Isdigit(z[i+n+1]) ){
         n++;
-        while( xjd1Isdigit(z[i+n]) ) n++;
+        while( i+n<mx && xjd1Isdigit(z[i+n]) ) n++;
       }
-      if( (z[i+n]=='e' || z[i+n]=='E')
-       && (((z[i+n+1]=='-' || z[i+n+1]=='+') && xjd1Isdigit(z[i+n+2]))
-           || xjd1Isdigit(z[i+n+1]))
-      ){
+      if( isExp(&z[i+n], mx-(i+n)) ){
         n += 2;
-        while( xjd1Isdigit(z[i+n]) ) n++;
+        while( i+n<mx && xjd1Isdigit(z[i+n]) ) n++;
       }
       p->n = n;
       p->eType = JSON_REAL;
@@ -285,6 +304,12 @@ void tokenNext(JsonStr *p){
       break;
     }
   }
+  return;
+
+token_eof:
+  p->n = 0;
+  p->eType = JSON_EOF;
+  return;
 }
 
 /* Convert the current token (which must be a string) into a true
@@ -430,9 +455,10 @@ json_error:
 /*
 ** Parse up a JSON string
 */
-JsonNode *xjd1JsonParse(const char *zIn){
+JsonNode *xjd1JsonParse(const char *zIn, int mxIn){
   JsonStr x;
   x.zIn = zIn;
+  x.mxIn = mxIn ? mxIn : xjd1Strlen30(zIn);
   x.iCur = 0;
   x.n = 0;
   x.eType = 0;

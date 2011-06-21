@@ -174,6 +174,17 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       }
       break; 
     }
+    case TK_PRAGMA: {
+      xjd1StringAppendF(pOut, "%*sPRAGMA: %.*s",
+         indent, "", pCmd->u.prag.name.n, pCmd->u.prag.name.z);
+      if( pCmd->u.prag.jvalue.n>0 ){
+        xjd1StringAppendF(pOut,"(%.*s)\n",
+           pCmd->u.prag.jvalue.n, pCmd->u.prag.jvalue.z);
+      }else{
+        xjd1StringAppend(pOut, "\n", 1);
+      }
+      break; 
+    }
     default: {
       xjd1StringAppendF(pOut, "%*seCmdType = %s (%d)\n",
           indent, "", xjd1TokenName(pCmd->eCmdType), pCmd->eCmdType);
