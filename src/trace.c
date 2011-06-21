@@ -1,4 +1,4 @@
-/*
+/*tab
 ** Copyright (c) 2011 D. Richard Hipp
 **
 ** This program is free software; you can redistribute it and/or
@@ -88,7 +88,7 @@ static const struct {
   { TK_ROLLBACK,         "TK_ROLLBACK"        },
   { TK_COMMIT,           "TK_COMMIT"          },
   { TK_CREATE,           "TK_CREATE"          },
-  { TK_TABLE,            "TK_TABLE"           },
+  { TK_DATASET,          "TK_DATASET"         },
   { TK_IF,               "TK_IF"              },
   { TK_EXISTS,           "TK_EXISTS"          },
   { TK_DROP,             "TK_DROP"            },
@@ -104,8 +104,8 @@ static const struct {
   { TK_FUNCTION,         "TK_FUNCTION"        },
   { TK_SPACE,            "TK_SPACE"           },
   { TK_ILLEGAL,          "TK_ILLEGAL"         },
-  { TK_CREATETABLE,      "TK_CREATETABLE"     },
-  { TK_DROPTABLE,        "TK_DROPTABLE"       },
+  { TK_CREATEDATASET,    "TK_CREATEDATASET"   },
+  { TK_DROPDATASET,      "TK_DROPDATASET"     },
 };
 
 /*
@@ -130,14 +130,14 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       xjd1TraceQuery(pOut, indent+3, pCmd->u.q.pQuery);
       break;
     }
-    case TK_CREATETABLE: {
-      xjd1StringAppendF(pOut, "%*sCreate-Table: \"%.*s\" if-not-exists=%d\n",
+    case TK_CREATEDATASET: {
+      xjd1StringAppendF(pOut, "%*sCreate-Dataset: \"%.*s\" if-not-exists=%d\n",
          indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
          pCmd->u.crtab.ifExists);
       break;
     }
-    case TK_DROPTABLE: {
-      xjd1StringAppendF(pOut, "%*sDrop-Table: \"%.*s\" if-exists=%d\n",
+    case TK_DROPDATASET: {
+      xjd1StringAppendF(pOut, "%*sDrop-Dataset: \"%.*s\" if-exists=%d\n",
          indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
          pCmd->u.crtab.ifExists);
       break;

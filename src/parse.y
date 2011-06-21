@@ -414,12 +414,12 @@ cmd ::= BEGIN ID.
 cmd ::= ROLLBACK ID.
 cmd ::= COMMIT ID.
 
-///////////////////// The CREATE TABLE statement ////////////////////////////
+///////////////////// The CREATE DATASET statement ////////////////////////////
 //
-cmd(A) ::= CREATE TABLE ifnotexists(B) tabname(N). {
+cmd(A) ::= CREATE DATASET ifnotexists(B) tabname(N). {
   Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
   if( pNew ){
-    pNew->eCmdType = TK_CREATETABLE;
+    pNew->eCmdType = TK_CREATEDATASET;
     pNew->u.crtab.ifExists = B;
     pNew->u.crtab.name = N;
   }
@@ -430,12 +430,12 @@ ifnotexists(A) ::= .                    {A = 0;}
 ifnotexists(A) ::= IF NOT EXISTS.       {A = 1;}
 tabname(A) ::= ID(X).                   {A = X;}
 
-////////////////////////// The DROP TABLE /////////////////////////////////////
+////////////////////////// The DROP DATASET //////////////////////////////////
 //
-cmd(A) ::= DROP TABLE ifexists(B) tabname(N). {
+cmd(A) ::= DROP DATASET ifexists(B) tabname(N). {
   Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
   if( pNew ){
-    pNew->eCmdType = TK_DROPTABLE;
+    pNew->eCmdType = TK_DROPDATASET;
     pNew->u.crtab.ifExists = B;
     pNew->u.crtab.name = N;
   }

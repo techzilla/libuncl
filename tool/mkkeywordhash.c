@@ -92,7 +92,7 @@ static Keyword aKeywordTable[] = {
   { "ROLLBACK",     "TK_ROLLBACK",  },
   { "COMMIT",       "TK_COMMIT",    },
   { "CREATE",       "TK_CREATE",    },
-  { "TABLE",        "TK_TABLE",     },
+  { "DATASET",      "TK_DATASET",   },
   { "IF",           "TK_IF",        },
   { "EXISTS",       "TK_EXISTS",    },
   { "DROP",         "TK_DROP",      },
