@@ -158,6 +158,7 @@ struct Parse {
 /* A query statement */
 struct Query {
   int eQType;                   /* Query type */
+  xjd1_stmt *pStmt;             /* Statement this query is part of */
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
@@ -180,6 +181,7 @@ struct Query {
 struct DataSrc {
   int eDSType;              /* Source type */
   Token asId;               /* The identifier after the AS keyword */
+  Query *pQuery;            /* Query this data source services */
   union {
     struct {                /* For a join.  eDSType==TK_COMMA */
       DataSrc *pLeft;          /* Data source on the left */
@@ -279,6 +281,21 @@ void xjd1PoolDelete(Pool*);
 void *xjd1PoolMalloc(Pool*, int);
 void *xjd1PoolMallocZero(Pool*, int);
 char *xjd1PoolDup(Pool*, const char *, int);
+
+/******************************** query.c ************************************/
+int xjd1QueryInit(xjd1_stmt*,Query*);
+int xjd1QueryRewind(Query*);
+int xjd1QueryStep(Query*);
+int xjd1QueryClose(Query*);
+
+/******************************** scan.c *************************************/
+int xjd1ScannerInit(Query*,DataSrc*);
+int xjd1ScannerRewind(DataSrc*);
+int xjd1ScannerEOF(DataSrc*);
+int xjd1ScannerStep(DataSrc*);
+int xjd1ScannerClose(DataSrc*);
+
+/******************************** stmt.c *************************************/
 
 /******************************** string.c ***********************************/
 int xjd1Strlen30(const char *);

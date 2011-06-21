@@ -26,6 +26,8 @@
 int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   xjd1_stmt *p;
   int dummy;
+  Command *pCmd;
+  int rc;
 
   *pN = strlen(zStmt);
   *ppNew = p = malloc( sizeof(*p) );
@@ -36,7 +38,21 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   pConn->pStmt = p;
   p->zCode = xjd1PoolDup(&p->sPool, zStmt, -1);
   if( pN==0 ) pN = &dummy;
-  return xjd1RunParser(pConn, p, p->zCode, pN);
+  rc = xjd1RunParser(pConn, p, p->zCode, pN);
+  pCmd = p->pCmd;
+  if( pCmd ){
+    switch( pCmd->eCmdType ){
+      case TK_SELECT: {
+        xjd1QueryInit(p, pCmd->u.q.pQuery);
+        break;
+      }
+      case TK_INSERT: {
+        xjd1QueryInit(p, pCmd->u.ins.pQuery);
+        break;
+      }
+    }
+  }
+  return rc;
 }
 
 /*
@@ -50,9 +66,25 @@ int xdj1_stmt_config(xjd1_stmt *pStmt, int op, ...){
 ** Delete a prepared statement.
 */
 int xjd1_stmt_delete(xjd1_stmt *pStmt){
+  Command *pCmd;
   if( pStmt==0 ) return XJD1_OK;
   pStmt->isDying = 1;
   if( pStmt->nRef>0 ) return XJD1_OK;
+
+  pCmd = pStmt->pCmd;
+  if( pCmd ){
+    switch( pCmd->eCmdType ){
+      case TK_SELECT: {
+        xjd1QueryClose(pCmd->u.q.pQuery);
+        break;
+      }
+      case TK_INSERT: {
+        xjd1QueryClose(pCmd->u.ins.pQuery);
+        break;
+      }
+    }
+  }
+
   if( pStmt->pPrev ){
     pStmt->pPrev->pNext = pStmt->pNext;
   }else{
@@ -144,6 +176,10 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       sqlite3_free(zSql);
       break;
     }
+    case TK_SELECT: {
+      rc = xjd1QueryStep(pStmt->pCmd->u.q.pQuery);
+      break;
+    }
   }
   return rc;
 }
@@ -152,6 +188,19 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
 ** Rewind a prepared statement back to the beginning.
 */
 int xjd1_stmt_rewind(xjd1_stmt *pStmt){
+  Command *pCmd = pStmt->pCmd;
+  if( pCmd ){
+    switch( pCmd->eCmdType ){
+      case TK_SELECT: {
+        xjd1QueryRewind(pCmd->u.q.pQuery);
+        break;
+      }
+      case TK_INSERT: {
+        xjd1QueryRewind(pCmd->u.ins.pQuery);
+        break;
+      }
+    }
+  }
   return XJD1_OK;
 }
 
