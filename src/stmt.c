@@ -43,11 +43,11 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   if( pCmd ){
     switch( pCmd->eCmdType ){
       case TK_SELECT: {
-        xjd1QueryInit(p, pCmd->u.q.pQuery);
+        xjd1QueryInit(pCmd->u.q.pQuery, p, 0);
         break;
       }
       case TK_INSERT: {
-        xjd1QueryInit(p, pCmd->u.ins.pQuery);
+        xjd1QueryInit(pCmd->u.ins.pQuery, p, 0);
         break;
       }
     }

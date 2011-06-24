@@ -86,6 +86,7 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eType = eType; 
+      pNew->eClass = XJD1_EXPR_TK;
       pNew->u.tk = *pTok;
     }
     return pNew;
@@ -97,6 +98,7 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eType = eOp; 
+      pNew->eClass = XJD1_EXPR_BI;
       pNew->u.bi.pLeft = pLeft;
       pNew->u.bi.pRight = pRight;
     }
@@ -108,6 +110,7 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eType = TK_FUNCTION; 
+      pNew->eClass = XJD1_EXPR_FUNC;
       pNew->u.func.name = *pFName;
       pNew->u.func.args = pArgs;
     }
@@ -119,6 +122,7 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eType = TK_SELECT;
+      pNew->eClass = XJD1_EXPR_Q;
       pNew->u.q = pQuery;
     }
     return pNew;

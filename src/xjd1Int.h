@@ -42,6 +42,7 @@
 #define TK_DROPDATASET    104
 
 typedef unsigned char u8;
+typedef unsigned short int u16;
 typedef struct Command Command;
 typedef struct DataSrc DataSrc;
 typedef struct Expr Expr;
@@ -49,7 +50,6 @@ typedef struct ExprItem ExprItem;
 typedef struct ExprList ExprList;
 typedef struct JsonNode JsonNode;
 typedef struct JsonStructElem JsonStructElem;
-typedef struct Line Line;
 typedef struct Parse Parse;
 typedef struct PoolChunk PoolChunk;
 typedef struct Pool Pool;
@@ -107,7 +107,6 @@ struct xjd1_stmt {
   u8 isDying;                       /* True if has been closed */
   char *zCode;                      /* Text of the query */
   Command *pCmd;                    /* Parsed command */
-  Line *pLine;                      /* Active lines */
   char *zErrMsg;                    /* Error message */
 };
 
@@ -132,20 +131,25 @@ struct ExprList {
 
 /* A node of an expression */
 struct Expr {
-  int eType;                /* Expression node type */
+  u16 eType;                /* Expression node type */
+  u16 eClass;               /* Expression class */
   union {
-    struct {                /* Binary and unary operators */
+    struct {                /* Binary or unary operator. eClass==XJD1_EXPR_BI */
       Expr *pLeft;             /* Left operand.  Only operand for unary ops */
       Expr *pRight;            /* Right operand.  NULL for unary ops */
     } bi;
-    Token tk;               /* Token values */
-    struct {                /* Function calls */
+    Token tk;               /* Token values. eClass=EXPR_TK */
+    struct {                /* Function calls.  eClass=EXPR_FUNC */
       Token name;              /* Name of the function */
       ExprList *args;          /* List of argumnts */
     } func;
-    Query *q;               /* Subqueries */
+    Query *q;               /* Subqueries. eClass=EXPR_Q */
   } u;
 };
+#define XJD1_EXPR_BI      1
+#define XJD1_EXPR_TK      2
+#define XJD1_EXPR_FUNC    3
+#define XJD1_EXPR_Q       4
 
 /* Parsing context */
 struct Parse {
@@ -166,6 +170,7 @@ struct Query {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
       Query *pRight;              /* Righ subquery */
+      int doneLeft;               /* True if left is run to completion */
     } compound;
     struct {                    /* For simple queries */
       ExprList *pCol;             /* List of result columns */
@@ -185,7 +190,7 @@ struct DataSrc {
   int eDSType;              /* Source type */
   Token asId;               /* The identifier after the AS keyword */
   Query *pQuery;            /* Query this data source services */
-  Line *pOut;               /* Where output of this source is stored */
+  JsonNode *pValue;         /* Current value for this data source */
   int isOwner;              /* True if this DataSrc owns the pOut line */
   union {
     struct {                /* For a join.  eDSType==TK_COMMA */
@@ -205,13 +210,6 @@ struct DataSrc {
       Query *q;                /* The subquery */
     } subq;
   } u;
-};
-
-/* A line is analogous to a row in an SQL database */
-struct Line {
-  Line *pNext;              /* Next line in a list */
-  Token name;               /* Name of this line */
-  JsonNode *pValue;         /* JSON associated with this line */
 };
 
 /* Any command, including but not limited to a query */
@@ -286,6 +284,20 @@ void xjd1ContextUnref(xjd1_context*);
 void xjd1Unref(xjd1*);
 void xjd1Error(xjd1*,int,const char*,...);
 
+/******************************** datasrc.c **********************************/
+int xjd1DataSrcInit(DataSrc*,Query*);
+int xjd1DataSrcRewind(DataSrc*);
+int xjd1DataSrcStep(DataSrc*);
+int xjd1DataSrcEOF(DataSrc*);
+int xjd1DataSrcClose(DataSrc*);
+
+/******************************** expr.c *************************************/
+int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
+int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*);
+int xjd1ExprTrue(Expr*);
+int xjd1ExprClose(Expr*);
+int xjd1ExprListClose(ExprList*);
+
 /******************************** json.c *************************************/
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
 void xjd1JsonRender(String*, JsonNode*);
@@ -303,17 +315,11 @@ char *xjd1PoolDup(Pool*, const char *, int);
 int xjd1PragmaStep(xjd1_stmt*);
 
 /******************************** query.c ************************************/
-int xjd1QueryInit(xjd1_stmt*,Query*);
+int xjd1QueryInit(Query*,xjd1_stmt*,Query*);
 int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
+int xjd1QueryEOF(Query*);
 int xjd1QueryClose(Query*);
-
-/******************************** scan.c *************************************/
-int xjd1ScannerInit(Query*,DataSrc*);
-int xjd1ScannerRewind(DataSrc*);
-int xjd1ScannerEOF(DataSrc*);
-int xjd1ScannerStep(DataSrc*);
-int xjd1ScannerClose(DataSrc*);
 
 /******************************** stmt.c *************************************/
 

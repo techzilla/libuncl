@@ -22,14 +22,22 @@
 ** Called after statement parsing to initalize every Query object
 ** within the statement.
 */
-int xjd1QueryInit(xjd1_stmt *pStmt, Query *pQuery){
+int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
   if( pQuery==0 ) return XJD1_OK;
   pQuery->pStmt = pStmt;
+  pQuery->pOuter = pOuter;
   if( pQuery->eQType==TK_SELECT ){
-    xjd1ScannerInit(pQuery, pQuery->u.simple.pFrom);
+    xjd1ExprListInit(pQuery->u.simple.pCol, pStmt, pQuery);
+    xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
+    xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery);
+    xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery);
+    xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery);
+    xjd1ExprListInit(pQuery->u.simple.pOrderBy, pStmt, pQuery);
+    xjd1ExprInit(pQuery->u.simple.pLimit, pStmt, pQuery);
+    xjd1ExprInit(pQuery->u.simple.pOffset, pStmt, pQuery);
   }else{
-    xjd1QueryInit(pStmt, pQuery->u.compound.pLeft);
-    xjd1QueryInit(pStmt, pQuery->u.compound.pRight);
+    xjd1QueryInit(pQuery->u.compound.pLeft, pStmt, pOuter);
+    xjd1QueryInit(pQuery->u.compound.pRight, pStmt, pOuter);
   }
   return XJD1_OK;
 }
@@ -37,28 +45,61 @@ int xjd1QueryInit(xjd1_stmt *pStmt, Query *pQuery){
 /*
 ** Rewind a query so that it is pointing at the first row.
 */
-int xjd1QueryRewind(Query *pQuery){
-  if( pQuery==0 ) return XJD1_OK;
-  if( pQuery->eQType==TK_SELECT ){
-    xjd1ScannerRewind(pQuery->u.simple.pFrom);
+int xjd1QueryRewind(Query *p){
+  if( p==0 ) return XJD1_OK;
+  if( p->eQType==TK_SELECT ){
+    xjd1DataSrcRewind(p->u.simple.pFrom);
   }else{
-    xjd1QueryRewind(pQuery->u.compound.pLeft);
-    xjd1QueryRewind(pQuery->u.compound.pRight);
+    xjd1QueryRewind(p->u.compound.pLeft);
+    p->u.compound.doneLeft = xjd1QueryEOF(p->u.compound.pLeft);
+    xjd1QueryRewind(p->u.compound.pRight);
   }
   return XJD1_OK;
 }
 
 /*
-** Advance a query to the next row.
+** Advance a query to the next row.  Return XDJ1_DONE if there is no
+** next row, or XJD1_ROW if the step was successful.
 */
-int xjd1QueryStep(Query *pQuery){
-  if( pQuery==0 ) return XJD1_OK;
-  if( pQuery->eQType==TK_SELECT ){
-    /* TBD */
+int xjd1QueryStep(Query *p){
+  int rc;
+  if( p==0 ) return XJD1_DONE;
+  if( p->eQType==TK_SELECT ){
+    do{
+      rc = xjd1DataSrcStep(p->u.simple.pFrom);
+    }while(
+         rc==XJD1_ROW
+      && (p->u.simple.pWhere==0 || !xjd1ExprTrue(p->u.simple.pWhere))
+    );
   }else{
-    /* TBD */
+    rc = XJD1_ROW;
+    if( !p->u.compound.doneLeft ){
+      rc = xjd1QueryStep(p->u.compound.pLeft);
+      if( rc==XJD1_DONE ) p->u.compound.doneLeft = 1;
+    }
+    if( p->u.compound.doneLeft ){
+      rc = xjd1QueryStep(p->u.compound.pRight);
+    }
   }
-  return XJD1_OK;
+  return rc;
+}
+
+/* Return true if there are no more rows available on this query */
+int xjd1QueryEOF(Query *p){
+  int rc;
+  if( p->eQType==TK_SELECT ){
+    rc = xjd1DataSrcEOF(p->u.simple.pFrom);
+  }else{
+    rc = 0;
+    if( !p->u.compound.doneLeft ){
+      rc = xjd1QueryEOF(p->u.compound.pLeft);
+      if( rc ) p->u.compound.doneLeft = 1;
+    }
+    if( p->u.compound.doneLeft ){
+      rc = xjd1QueryEOF(p->u.compound.pRight);
+    }
+  }
+  return rc;
 }
 
 /*
@@ -68,7 +109,14 @@ int xjd1QueryClose(Query *pQuery){
   int rc = XJD1_OK;
   if( pQuery==0 ) return rc;
   if( pQuery->eQType==TK_SELECT ){
-    xjd1ScannerClose(pQuery->u.simple.pFrom);
+    xjd1ExprListClose(pQuery->u.simple.pCol);
+    xjd1DataSrcClose(pQuery->u.simple.pFrom);
+    xjd1ExprClose(pQuery->u.simple.pWhere);
+    xjd1ExprListClose(pQuery->u.simple.pGroupBy);
+    xjd1ExprClose(pQuery->u.simple.pHaving);
+    xjd1ExprListClose(pQuery->u.simple.pOrderBy);
+    xjd1ExprClose(pQuery->u.simple.pLimit);
+    xjd1ExprClose(pQuery->u.simple.pOffset);
   }else{
     xjd1QueryClose(pQuery->u.compound.pLeft);
     xjd1QueryClose(pQuery->u.compound.pRight);
