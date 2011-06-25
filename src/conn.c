@@ -69,7 +69,7 @@ int xjd1_close(xjd1 *pConn){
   pConn->isDying = 1;
   if( pConn->nRef>0 ) return XJD1_OK;
   xjd1ContextUnref(pConn->pContext);
-  sqlite3_free(pConn->db);
+  sqlite3_close(pConn->db);
   xjd1StringClear(&pConn->errMsg);
   free(pConn);
   return XJD1_OK;

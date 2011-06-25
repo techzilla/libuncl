@@ -172,6 +172,7 @@ int main(int argc, char **argv){
       zPrompt = " ...> ";
     }
   }
+  free(zStmt);
   xjd1_close(pDb);
   return 0;
 }
