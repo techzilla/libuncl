@@ -53,6 +53,16 @@ static int resizeString(String *pStr, int newSize){
 }
 
 /*
+** Truncate a string to zero length
+*/
+void xjd1StringTruncate(String *pStr){
+  if( pStr ){
+    pStr->nUsed = 0;
+    if( pStr->zBuf ) pStr->zBuf[0] = 0;
+  }
+}
+
+/*
 ** Append text in z to a string.  If n>=0 then append exactly
 ** n bytes.  If n<0 then append all of z[] up to the zero terminator.
 **
@@ -61,7 +71,7 @@ static int resizeString(String *pStr, int newSize){
 */
 PRIVATE int xjd1StringAppend(String *pStr, const char *z, int n){
   if( n<0 ) n = xjd1Strlen30(z);
-  if( pStr->nUsed + n >= pStr->nAlloc ){
+  if( pStr->nUsed + n + 1 >= pStr->nAlloc ){
     if( resizeString(pStr, pStr->nAlloc*2 + n + 100) ) return 0;
   }
   if( z ){
@@ -107,7 +117,10 @@ PRIVATE String *xjd1StringNew(Pool *pPool, int initSize){
 ** Free the content of a string but not the String object itself.
 */
 PRIVATE void xjd1StringClear(String *pStr){
-  if( pStr && pStr->pPool==0 ) free(pStr->zBuf);
+  if( pStr ){
+    if( pStr->pPool==0 ) free(pStr->zBuf);
+    memset(pStr, 0, sizeof(*pStr));
+  }
 }
 
 /*

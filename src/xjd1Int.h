@@ -107,6 +107,8 @@ struct xjd1_stmt {
   u8 isDying;                       /* True if has been closed */
   char *zCode;                      /* Text of the query */
   Command *pCmd;                    /* Parsed command */
+  int okValue;                      /* True if retValue is valid */
+  String retValue;                  /* String rendering of return value */
   char *zErrMsg;                    /* Error message */
 };
 
@@ -200,6 +202,7 @@ struct DataSrc {
     struct {                /* For a named table.  eDSType==TK_ID */
       Token name;              /* The table name */
       sqlite3_stmt *pStmt;     /* Cursor for reading content */
+      int eofSeen;             /* True if at EOF */
     } tab;
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
@@ -290,6 +293,7 @@ int xjd1DataSrcRewind(DataSrc*);
 int xjd1DataSrcStep(DataSrc*);
 int xjd1DataSrcEOF(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);
+JsonNode *xjd1DataSrcValue(DataSrc*);
 
 /******************************** expr.c *************************************/
 int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
@@ -320,6 +324,7 @@ int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
 int xjd1QueryEOF(Query*);
 int xjd1QueryClose(Query*);
+JsonNode *xjd1QueryValue(Query*);
 
 /******************************** stmt.c *************************************/
 
@@ -330,7 +335,7 @@ String *xjd1StringNew(Pool*, int);
 int xjd1StringAppend(String*, const char*, int);
 #define xjd1StringText(S)      ((S)->zBuf)
 #define xjd1StringLen(S)       ((S)->nUsed)
-#define xjd1StringTruncate(S)  ((S)->nUsed=0)
+void xjd1StringTruncate(String*);
 void xjd1StringClear(String*);
 void xjd1StringDelete(String*);
 int xjd1StringVAppendF(String*, const char*, va_list);

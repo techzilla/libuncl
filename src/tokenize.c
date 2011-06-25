@@ -395,6 +395,7 @@ int xjd1RunParser(
   int tokenType;
   void *pEngine;
   int lastTokenParsed = 0;
+  int nToken = 0;
   int nErr = 0;
   extern void *xjd1ParserAlloc(void*(*)(size_t));
   extern void xjd1ParserFree(void*, void(*)(void*));
@@ -431,6 +432,7 @@ int xjd1RunParser(
         goto abort_parse;
       }
       default: {
+        nToken++;
         xjd1Parser(pEngine, tokenType, sParse.sTok, &sParse);
         lastTokenParsed = tokenType;
         if( sParse.errCode || tokenType==TK_SEMI ) goto abort_parse;
@@ -441,7 +443,7 @@ int xjd1RunParser(
 abort_parse:
   *pN = i;
   if( sParse.errCode ) nErr++;
-  if( nErr==0 && sParse.errCode==XJD1_OK ){
+  if( nErr==0 && sParse.errCode==XJD1_OK && nToken>0 ){
     if( lastTokenParsed!=TK_SEMI ){
       sParse.sTok.z = ";";
       sParse.sTok.n = 1;
@@ -451,5 +453,6 @@ abort_parse:
   }
   pStmt->pCmd = sParse.pCmd;
   xjd1ParserFree(pEngine, free);
-  return nErr==0 && sParse.errCode==0 && sParse.pCmd!=0 ? XJD1_OK : XJD1_ERROR;
+  return nErr==0 && sParse.errCode==0
+       && (sParse.pCmd!=0 || nToken==0) ? XJD1_OK : XJD1_ERROR;
 }

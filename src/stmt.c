@@ -96,6 +96,7 @@ int xjd1_stmt_delete(xjd1_stmt *pStmt){
   }
   xjd1Unref(pStmt->pConn);
   xjd1PoolClear(&pStmt->sPool);
+  xjd1StringClear(&pStmt->retValue);
   free(pStmt);
   return XJD1_OK;
 }
@@ -177,7 +178,15 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       break;
     }
     case TK_SELECT: {
-      rc = xjd1QueryStep(pStmt->pCmd->u.q.pQuery);
+      Query *pQuery = pCmd->u.q.pQuery;
+      rc = xjd1QueryStep(pQuery);
+      xjd1StringClear(&pStmt->retValue);
+      if( rc==XJD1_ROW ){
+        xjd1JsonRender(&pStmt->retValue, xjd1QueryValue(pQuery));
+        pStmt->okValue = 1;
+      }else{
+        pStmt->okValue = 0;
+      }
       break;
     }
     case TK_PRAGMA: {
@@ -197,6 +206,8 @@ int xjd1_stmt_rewind(xjd1_stmt *pStmt){
     switch( pCmd->eCmdType ){
       case TK_SELECT: {
         xjd1QueryRewind(pCmd->u.q.pQuery);
+        xjd1StringTruncate(&pStmt->retValue);
+        pStmt->okValue = 0;
         break;
       }
       case TK_INSERT: {
@@ -213,8 +224,9 @@ int xjd1_stmt_rewind(xjd1_stmt *pStmt){
 ** its most recent xjd1_stmt_step() call.
 */
 int xjd1_stmt_value(xjd1_stmt *pStmt, const char **pzValue){
-  *pzValue = 0;
-  return XJD1_MISUSE;
+  if( pStmt==0 ) return XJD1_MISUSE;
+  *pzValue = pStmt->retValue.zBuf;
+  return XJD1_OK;
 }
 
 /*

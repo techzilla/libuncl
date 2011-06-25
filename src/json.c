@@ -458,7 +458,7 @@ json_error:
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn){
   JsonStr x;
   x.zIn = zIn;
-  x.mxIn = mxIn ? mxIn : xjd1Strlen30(zIn);
+  x.mxIn = mxIn>0 ? mxIn : xjd1Strlen30(zIn);
   x.iCur = 0;
   x.n = 0;
   x.eType = 0;

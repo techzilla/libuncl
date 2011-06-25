@@ -78,7 +78,7 @@ static int walkExpr(Expr *p, WalkAction *pAction){
 /*
 ** Callback for query expressions
 */
-static int initQueryCallback(Expr *p, WalkAction *pAction){
+static int walkInitQueryCallback(Expr *p, WalkAction *pAction){
   assert( p );
   assert( p->eType==TK_SELECT );
   return xjd1QueryInit(p->u.q, pAction->pStmt, pAction->pQuery);
@@ -92,7 +92,7 @@ static int initQueryCallback(Expr *p, WalkAction *pAction){
 int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = initQueryCallback;
+  sAction.xQueryAction = walkInitQueryCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExpr(p, &sAction);
@@ -105,21 +105,11 @@ int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
 int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = initQueryCallback;
+  sAction.xQueryAction = walkInitQueryCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExprList(p, &sAction);
 }
-
-/*
-** Return TRUE if the given expression evaluates to TRUE.
-** An empty expression is considered to be TRUE.  A NULL value
-** is not TRUE.
-*/
-int xjd1ExprTrue(Expr *p){
-  return 1;
-}
-
 
 
 /* Walker callback for ExprClose() */
@@ -147,4 +137,91 @@ int xjd1ExprListClose(ExprList *p){
   memset(&sAction, 0, sizeof(sAction));
   sAction.xQueryAction = walkCloseQueryCallback;
   return walkExprList(p,&sAction);
+}
+
+/*
+** Evaluate an expression.  Return the result as a JSON object.
+**
+** The caller must free the returned JSON by a call xjdJsonFree().
+*/
+JsonNode *xjd1ExprEval(Expr *p){
+  JsonNode *pRes;
+  pRes = malloc( sizeof(*pRes) );
+  if( pRes==0 ) return 0;
+  memset(pRes, 0, sizeof(*pRes));
+  if( p==0 ){
+    pRes->eJType = XJD1_NULL;
+    return pRes;
+  }
+  switch( p->eType ){
+    case TK_INTEGER:
+    case TK_FLOAT: {
+      pRes->u.r = atof(p->u.tk.z);
+      pRes->eJType = XJD1_REAL;
+      break;
+    }
+    default:
+    case TK_NULL: {
+      pRes->eJType = XJD1_NULL;
+      break;
+    }
+    case TK_TRUE: {
+      pRes->eJType = XJD1_TRUE;
+      break;
+    }
+    case TK_FALSE: {
+      pRes->eJType = XJD1_FALSE;
+      break;
+    }
+    case TK_STRING: {
+      pRes->u.z = malloc( p->u.tk.n );
+      if( pRes->u.z ){
+        int i, j;
+        for(i=1, j=0; i<p->u.tk.n-1; i++){
+          char c = p->u.tk.z[i];
+          if( c=='\\' ){
+            c = p->u.tk.z[++i];
+            if( c=='n' ){
+              c = '\n';
+            }else if( c=='t' ){
+              c = '\t';
+            }
+          }
+          pRes->u.z[++j] = c;
+        }
+        pRes->u.z[j] = 0;
+      }
+      pRes->eJType = XJD1_STRING;
+      break;
+    }
+  }
+  return pRes;
+}
+
+
+/*
+** Return TRUE if the given expression evaluates to TRUE.
+** An empty expression is considered to be TRUE.  A NULL value
+** is not TRUE.
+*/
+int xjd1ExprTrue(Expr *p){
+  int rc = 0;
+  JsonNode *pValue = xjd1ExprEval(p);
+  if( pValue==0 ) return 0;
+  switch( pValue->eJType ){
+    case XJD1_REAL: {
+      rc = pValue->u.r!=0.0;
+      break;
+    }
+    case XJD1_TRUE: {
+      rc = 1;
+      break;
+    }
+    case XJD1_STRING: {
+      rc = atof(pValue->u.z)!=0.0;
+      break;
+    }
+  }
+  xjd1JsonFree(pValue);
+  return rc;
 }

@@ -69,7 +69,7 @@ int xjd1QueryStep(Query *p){
       rc = xjd1DataSrcStep(p->u.simple.pFrom);
     }while(
          rc==XJD1_ROW
-      && (p->u.simple.pWhere==0 || !xjd1ExprTrue(p->u.simple.pWhere))
+      && (p->u.simple.pWhere!=0 && !xjd1ExprTrue(p->u.simple.pWhere))
     );
   }else{
     rc = XJD1_ROW;
@@ -83,6 +83,27 @@ int xjd1QueryStep(Query *p){
   }
   return rc;
 }
+
+/*
+** Return the value from the most recent query step.  
+**
+** The pointer returned is managed by the query.  It will be freed
+** by the next call to QueryStep(), QueryReset(), or QueryClose().
+*/
+JsonNode *xjd1QueryValue(Query *p){
+  JsonNode *pOut = 0;
+  if( p ){
+    if( p->eQType==TK_SELECT ){
+      pOut = xjd1DataSrcValue(p->u.simple.pFrom);
+    }else if( !p->u.compound.doneLeft ){
+      pOut = xjd1QueryValue(p->u.compound.pLeft);
+    }else{
+      pOut = xjd1QueryValue(p->u.compound.pRight);
+    }
+  }
+  return pOut;
+}
+
 
 /* Return true if there are no more rows available on this query */
 int xjd1QueryEOF(Query *p){
