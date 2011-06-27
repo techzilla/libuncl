@@ -206,7 +206,7 @@ static void shellTestcase(Shell *p, int argc, char **argv){
 **      '#'       Matches any sequence of one or more digits with an
 **                optional + or - sign in front
 */
-static int strglob(const char *zGlob, const char *z){
+static int strnotglob(const char *zGlob, const char *z){
   int c, c2;
   int invert;
   int seen;
@@ -219,7 +219,7 @@ static int strglob(const char *zGlob, const char *z){
       if( c==0 ){
         return 1;
       }else if( c=='[' ){
-        while( *z && strglob(zGlob-1,z)==0 ){
+        while( *z && strnotglob(zGlob-1,z)==0 ){
           z++;
         }
         return (*z)!=0;
@@ -229,7 +229,7 @@ static int strglob(const char *zGlob, const char *z){
           c2 = *(z++);
           if( c2==0 ) return 0;
         }
-        if( strglob(zGlob,z) ) return 1;
+        if( strnotglob(zGlob,z) ) return 1;
       }
       return 0;
     }else if( c=='?' ){
@@ -274,51 +274,41 @@ static int strglob(const char *zGlob, const char *z){
   }
   return *z==0;
 }
+static int strglob(const char *zGlob, const char *z){
+  return !strnotglob(zGlob,z);
+}
 
 /*
-** Command:  .result PATTERN
+** Verify the output from a test.
 */
+static void shellResultCheck(
+  Shell *p,
+  int argc,
+  char **argv,
+  int(*xCmp)(const char*,const char*)
+){
+  const char *zAns = argc>=2 ? argv[1] : "";
+  const char *zRes = xjd1StringText(&p->testOut);
+  if( zRes==0 ) zRes = "";
+  p->nTest++;
+  if( xCmp(zAns, zRes) ){
+    p->nErr++;
+    fprintf(stderr, " Test failed: %s.%s\n Expected: [%s]\n      Got: [%s]\n",
+      p->zFile, p->zTestCase, argv[1], zRes);
+  }
+}
+
+/* Command:  .result PATTERN */
 static void shellResult(Shell *p, int argc, char **argv){
-  if( argc>=2 ){
-    char *zRes = xjd1StringText(&p->testOut);
-    if( zRes==0 ) zRes = "";
-    p->nTest++;
-    if( strcmp(argv[1], zRes) ){
-      p->nErr++;
-      fprintf(stderr, " Test failed: %s\n Expected: [%s]\n      Got: [%s]\n",
-        p->zTestCase, argv[1], zRes);
-    }
-  }
+  shellResultCheck(p,argc,argv,strcmp);
 }
-/*
-** Command:  .glob PATTERN
-*/
+/* Command:  .glob PATTERN */
 static void shellGlob(Shell *p, int argc, char **argv){
-  if( argc>=2 ){
-    char *zRes = xjd1StringText(&p->testOut);
-    if( zRes==0 ) zRes = "";
-    p->nTest++;
-    if( strglob(argv[1], zRes) ){
-      p->nErr++;
-      fprintf(stderr, " Test failed: %s\n Expected: [%s]\n      Got: [%s]\n",
-        p->zTestCase, argv[1], zRes);
-    }
-  }
+  shellResultCheck(p,argc,argv,strglob);
 }
-/*
-** Command:  .notglob PATTERN
-*/
+/* Command:  .notglob PATTERN */
 static void shellNotGlob(Shell *p, int argc, char **argv){
-  if( argc>=2 ){
-    char *zRes = xjd1StringText(&p->testOut);
-    if( zRes==0 ) zRes = "";
-    p->nTest++;
-    if( strglob(argv[1], zRes)==0 ){
-      p->nErr++;
-      fprintf(stderr, " Test failed: %s\n Expected: [%s]\n      Got: [%s]\n",
-        p->zTestCase, argv[1], zRes);
-    }
-  }
+  shellResultCheck(p,argc,argv,strnotglob);
 }
 
 /*
@@ -358,7 +348,22 @@ static void processOneFile(Shell*, const char*);
 */
 static void shellRead(Shell *p, int argc, char **argv){
   if( argc>=2 ){
-    processOneFile(p, argv[1]);
+    int nErr = p->nErr;
+    String newFile;
+    char *zNew;
+    xjd1StringInit(&newFile, 0, 0);
+    if( argv[1][0]=='/' || strcmp(p->zFile,"-")==0 ){
+      xjd1StringAppend(&newFile, argv[1], 0);
+    }else{
+      int i, j;
+      for(i=j=0; p->zFile[i]; i++){ if( p->zFile[i]=='/' ) j = i; }
+      xjd1StringAppendF(&newFile, "%.*s/%s", j, p->zFile, argv[1]);
+    }
+    zNew = xjd1StringText(&newFile);
+    printf("BEGIN %s\n", zNew);
+    processOneFile(p, zNew);
+    printf("END %s - %d new errors\n", zNew, p->nErr - nErr);
+    xjd1StringClear(&newFile);
   }
 }
 
@@ -368,6 +373,13 @@ static void shellRead(Shell *p, int argc, char **argv){
 */
 static void shellBreakpoint(Shell *p, int argc, char **argv){
   /* no-op */
+}
+
+/*
+** Command:  .puts TEXT
+*/
+static void shellPuts(Shell *p, int argc, char **argv){
+  if( argc>=2 ) printf("%s\n", argv[1]);
 }
 
 /*
@@ -389,6 +401,7 @@ static void processMetaCommand(Shell *p){
     { "result",     shellResult,      ".result TEXT"        },
     { "glob",       shellGlob,        ".glob PATTERN"       },
     { "notglob",    shellNotGlob,     ".notglob PATTERN"    },
+    { "puts",       shellPuts,        ".puts TEXT"          },
     { "read",       shellRead,        ".read FILENAME"      },
     { "open",       shellOpenDB,      ".open DATABASE"      },
     { "new",        shellNewDB,       ".new DATABASE"       },
@@ -437,6 +450,17 @@ static void processMetaCommand(Shell *p){
 }
 
 /*
+** Append text to the end of the testOut string.  If there is already
+** text in the testOut buffer, prepent a space first.
+*/
+static void appendTestOut(Shell *p, const char *z, int n){
+  if( xjd1StringLen(&p->testOut)>0 ){
+    xjd1StringAppend(&p->testOut, " ", 1);
+  }
+  xjd1StringAppend(&p->testOut, z, n);
+}
+
+/*
 ** Run a single statment.
 */
 static void processOneStatement(Shell *p, const char *zCmd){
@@ -462,15 +486,16 @@ static void processOneStatement(Shell *p, const char *zCmd){
         if( p->zTestCase[0]==0 ){
           printf("%s\n", zValue);
         }else{
-          if( xjd1StringLen(&p->testOut)>0 ){
-            xjd1StringAppend(&p->testOut, " ", 1);
-          }
-          xjd1StringAppend(&p->testOut, zValue, -1);
+          appendTestOut(p, zValue, -1);
         }
       }
     }while( rc==XJD1_ROW );
     xjd1_stmt_delete(pStmt);
   }else{
+    if( p->zTestCase[0] ){
+      appendTestOut(p, xjd1_errcode_name(p->pDb), -1);
+      appendTestOut(p, xjd1_errmsg(p->pDb), -1);
+    }
     fprintf(stderr, "%s:%d: ERROR: %s\n",
             p->zFile, p->nLine, xjd1_errmsg(p->pDb));
     p->nErr++;
@@ -483,10 +508,28 @@ static void processOneStatement(Shell *p, const char *zCmd){
 static void processScript(Shell *p){
   char *z, c;
   int i;
-  if( p->pDb==0 ) return;
+  if( p->pDb==0 ){
+    if( p->shellFlags & SHELL_ECHO ) printf("%s", xjd1StringText(&p->inBuf));
+    xjd1StringTruncate(&p->inBuf);
+    return;
+  }
   while( xjd1StringLen(&p->inBuf) ){
     z = xjd1StringText(&p->inBuf);
-    for(i=0; z[i]; i++){
+    for(i=0; shellIsSpace(z[i]); i++){}
+    if( z[i]=='-' && z[i+1]=='-' ){
+      for(i+=2; z[i] && z[i]!='\n'; i++){}
+      if( p->shellFlags & SHELL_ECHO ){
+        printf("%.*s\n", i, z);
+      }
+      while( shellIsSpace(z[i]) ) i++;
+      xjd1StringRemovePrefix(&p->inBuf, i);
+      break;
+    }
+    if( z[i]==0 ){
+      xjd1StringTruncate(&p->inBuf);
+      break;
+    }
+    for(; z[i]; i++){
       if( z[i]!=';' ) continue;
       c = z[i+1];
       z[i+1] = 0;
@@ -498,8 +541,10 @@ static void processScript(Shell *p){
       z[i+1] = c;
       while( shellIsSpace(z[i+1]) ){ i++; }
       xjd1StringRemovePrefix(&p->inBuf, i+1);
+      i = 0;
       break;
     }
+    if( i>0 ) break;
   }
 }
 
@@ -536,6 +581,10 @@ static void processOneFile(
     }
     if( fgets(zLine, sizeof(zLine), p->pIn)==0 ) break;
     p->nLine++;
+    if( zLine[0]=='.' && xjd1StringLen(&p->inBuf) ){
+      fprintf(stderr, "%s:%d: missing ';'\n", p->zFile, p->nLine);
+      xjd1StringTruncate(&p->inBuf);
+    }
     xjd1StringAppend(&p->inBuf, zLine, -1);
     zIn = xjd1StringText(&p->inBuf);
     if( zIn[0]=='.' ){
@@ -565,6 +614,9 @@ int main(int argc, char **argv){
     }
   }else{
     processOneFile(&s, "-");
+  }
+  if( s.nTest ){
+    printf("%d errors from %d tests\n", s.nErr, s.nTest);
   }
   if( s.pDb ) xjd1_close(s.pDb);
   xjd1StringClear(&s.inBuf);

@@ -1,0 +1,3 @@
+-- Run all test scripts
+--
+.read base01.test

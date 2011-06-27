@@ -1,0 +1,17 @@
+-- Basic sanity checking.
+--
+.new t1.db
+.testcase 100
+CREATE DATASET abc;
+CREATE DATASET def;
+INSERT INTO abc VALUE {"name":"abc"};
+INSERT INTO def VALUE {"name":"def"};
+.result
+
+.testcase 110
+SELECT FROM abc;
+.result {"name":"abc"}
+
+.testcase 120
+SELECT FROM def;
+.result {"name":"def"}

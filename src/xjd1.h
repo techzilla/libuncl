@@ -59,6 +59,7 @@ int xjd1_close(xjd1*);
 /* Report on recent errors */
 int xjd1_errcode(xjd1*);
 const char *xjd1_errmsg(xjd1*);
+const char *xjd1_errcode_name(xjd1*);
 
 /* Create a new prepared statement */
 int xjd1_stmt_new(xjd1*, const char*, xjd1_stmt**, int*);

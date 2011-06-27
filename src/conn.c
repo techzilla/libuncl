@@ -85,6 +85,20 @@ const char *xjd1_errmsg(xjd1 *pConn){
   if( pConn==0 ) return "out of memory";
   return xjd1StringText(&pConn->errMsg);
 }
+const char *xjd1_errcode_name(xjd1 *pConn){
+  const char *z = "???";
+  switch( xjd1_errcode(pConn) ){
+    case XJD1_OK:        z = "OK";         break;
+    case XJD1_ERROR:     z = "ERROR";      break;
+    case XJD1_MISUSE:    z = "MISUSE";     break;
+    case XJD1_NOMEM:     z = "NOMEM";      break;
+    case XJD1_UNKNOWN:   z = "UNKNOWN";    break;
+    case XJD1_SYNTAX:    z = "SYNTAX";     break;
+    case XJD1_ROW:       z = "ROW";        break;
+    case XJD1_DONE:      z = "DONE";       break;
+  }
+  return z;
+}
 
 /* Remove a reference to a database connection.  When the last reference
 ** is removed and the database is closed, then memory is deallocated.

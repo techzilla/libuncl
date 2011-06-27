@@ -72,6 +72,12 @@ HDR = \
 #
 all:	xjd1
 
+
+# Run all tests
+#
+test:	xjd1
+	./xjd1 $(TOP)/test/all.test
+
 # The shell program
 #
 xjd1:	libxjd1.a $(TOP)/src/shell.c
