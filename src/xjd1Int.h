@@ -135,6 +135,7 @@ struct ExprList {
 struct Expr {
   u16 eType;                /* Expression node type */
   u16 eClass;               /* Expression class */
+  xjd1_stmt *pStmt;         /* Statement this expression belongs to */
   union {
     struct {                /* Binary or unary operator. eClass==XJD1_EXPR_BI */
       Expr *pLeft;             /* Left operand.  Only operand for unary ops */
@@ -261,6 +262,7 @@ struct JsonStructElem {
 /* A single element of a JSON value */
 struct JsonNode {
   int eJType;               /* Element type */
+  int nRef;                 /* Number of references */
   union {
     double r;               /* Real value */
     char *z;                /* String value */
@@ -307,7 +309,10 @@ int xjd1ExprListClose(ExprList*);
 
 /******************************** json.c *************************************/
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
+JsonNode *xjd1JsonRef(JsonNode*);
 void xjd1JsonRender(String*, JsonNode*);
+JsonNode *xjd1JsonNew(void);
+JsonNode *xjd1JsonEditable(JsonNode*);
 void xjd1JsonFree(JsonNode*);
 
 /******************************** malloc.c ***********************************/

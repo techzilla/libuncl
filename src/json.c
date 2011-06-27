@@ -23,7 +23,7 @@
 ** Reclaim memory used by JsonNode objects 
 */
 void xjd1JsonFree(JsonNode *p){
-  if( p ){
+  if( p && (--p->nRef)<=0 ){
     switch( p->eJType ){
       case XJD1_STRING: {
         free(p->u.z);
@@ -51,6 +51,81 @@ void xjd1JsonFree(JsonNode *p){
     free(p);
   }
 }
+
+/*
+** Allocate a new Json node.
+*/
+JsonNode *xjd1JsonNew(void){
+  JsonNode *p = malloc( sizeof(*p) );
+  if( p ){
+    memset(p, 0, sizeof(*p));
+    p->nRef = 1;
+  }
+  return p;
+}
+
+/*
+** Increase the reference count on a JSON object.  
+**
+** The object is freed when its reference count reaches zero.
+*/
+JsonNode *xjd1JsonRef(JsonNode *p){
+  if( p ){
+    p->nRef++;
+  }
+  return p;
+}
+
+
+/*
+** Return an editable JSON object.  A JSON object is editable if its
+** reference count is exactly 1.  If the input JSON object has a reference
+** count greater than 1, then make a copy and return the copy.
+*/
+JsonNode *xjd1JsonEdit(JsonNode *p){
+  JsonNode *pNew;
+  if( p==0 ) return 0;
+  if( p->nRef==1 ) return p;
+  pNew = xjd1JsonNew();
+  if( pNew==0 ) return 0;
+  pNew->eJType = p->eJType;
+  switch( pNew->eJType ){
+    case XJD1_STRING: {
+      pNew->u.z = xjd1PoolDup(0, p->u.z, -1);
+      break;
+    }
+    case XJD1_ARRAY: {
+      JsonNode **ap;
+      pNew->u.array.apElem = ap = malloc( sizeof(JsonNode*)*p->u.array.nElem );
+      if( ap==0 ){
+        pNew->eJType = XJD1_NULL;
+      }else{
+        int i;
+        pNew->u.array.nElem = p->u.array.nElem;
+        for(i=0; i<p->u.array.nElem; i++){
+          ap[i] = xjd1JsonEdit(p->u.array.apElem[i]);
+        }
+      }
+      break;
+    }
+    case XJD1_STRUCT: {
+      JsonStructElem *pSrc, *pDest, **ppPrev;
+      ppPrev = &pNew->u.pStruct;
+      for(pSrc=p->u.pStruct; pSrc; pSrc=pSrc->pNext){
+        pDest = malloc( sizeof(*pDest) );
+        if( pDest==0 ) break;
+        memset(pDest, 0, sizeof(*pDest));
+        *ppPrev = pDest;
+        ppPrev = &pDest->pNext;
+        pDest->zLabel = xjd1PoolDup(0, pSrc->zLabel, -1);
+        pDest->pValue = xjd1JsonEdit(pSrc->pValue);
+      }
+      break;
+    }
+  }
+  return pNew;
+}
+
 
 /* Render a string as a string literal.
 */
@@ -360,9 +435,8 @@ static char *tokenDequoteString(JsonStr *pIn){
 */
 static JsonNode *parseJson(JsonStr *pIn){
   JsonNode *pNew;
-  pNew = malloc( sizeof(*pNew) );
+  pNew = xjd1JsonNew();
   if( pNew==0 ) return 0;
-  memset(pNew, 0, sizeof(*pNew));
   pNew->eJType = tokenType(pIn);
   switch( pNew->eJType ){
     case JSON_BEGIN_STRUCT: {

@@ -24,10 +24,11 @@
 */
 typedef struct WalkAction WalkAction;
 struct WalkAction {
-  int (*xQueryAction)(Expr*,WalkAction*);
-  xjd1_stmt *pStmt;
-  Query *pQuery;
-  void *pArg;
+  int (*xQueryAction)(Expr*,WalkAction*);  /* Call for each EXPR_Q node */
+  int (*xNodeAction)(Expr*,WalkAction*);   /* Call for every node */
+  xjd1_stmt *pStmt;                        /* Stmt expr belongs to */
+  Query *pQuery;                           /* Query expr belongs to */
+  void *pArg;                              /* Some other argument */
 };
 
 /* forward reference */
@@ -52,9 +53,14 @@ static int walkExprList(ExprList *p, WalkAction *pAction){
 static int walkExpr(Expr *p, WalkAction *pAction){
   int rc = XJD1_OK;
   if( p==0 ) return XJD1_OK;
+  if( pAction->xNodeAction ){
+    rc = pAction->xNodeAction(p, pAction);
+  }
   switch( p->eClass ){
     case XJD1_EXPR_Q: {
-      if( pAction->xQueryAction ) rc = pAction->xQueryAction(p, pAction);
+      if( pAction->xQueryAction ){
+        rc = pAction->xQueryAction(p, pAction);
+      }
       break;
     }
     case XJD1_EXPR_FUNC: {
@@ -78,10 +84,14 @@ static int walkExpr(Expr *p, WalkAction *pAction){
 /*
 ** Callback for query expressions
 */
-static int walkInitQueryCallback(Expr *p, WalkAction *pAction){
+static int walkInitCallback(Expr *p, WalkAction *pAction){
+  int rc = XJD1_OK;
   assert( p );
-  assert( p->eType==TK_SELECT );
-  return xjd1QueryInit(p->u.q, pAction->pStmt, pAction->pQuery);
+  p->pStmt = pAction->pStmt;
+  if( p->eClass==XJD1_EXPR_Q ){
+    rc = xjd1QueryInit(p->u.q, pAction->pStmt, pAction->pQuery);
+  }
+  return rc;
 }
 
 
@@ -92,7 +102,7 @@ static int walkInitQueryCallback(Expr *p, WalkAction *pAction){
 int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkInitQueryCallback;
+  sAction.xQueryAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExpr(p, &sAction);
@@ -105,7 +115,7 @@ int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
 int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkInitQueryCallback;
+  sAction.xQueryAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExprList(p, &sAction);
@@ -202,9 +212,8 @@ static double realFromExpr(Expr *p){
 JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
   double rLeft, rRight;
-  pRes = malloc( sizeof(*pRes) );
+  pRes = xjd1JsonNew();
   if( pRes==0 ) return 0;
-  memset(pRes, 0, sizeof(*pRes));
   if( p==0 ){
     pRes->eJType = XJD1_NULL;
     return pRes;
@@ -301,9 +310,8 @@ JsonNode *xjd1ExprListEval(ExprList *pList){
   int i;
   ExprItem *pItem;
 
-  pRes = malloc( sizeof(*pRes) );
+  pRes = xjd1JsonNew();
   if( pRes==0 ) return 0;
-  memset(pRes, 0, sizeof(*pRes));
   pRes->eJType = XJD1_STRUCT;
   ppLast = &pRes->u.pStruct;
   if( pList==0 ) return pRes;
