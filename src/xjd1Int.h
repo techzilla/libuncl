@@ -168,6 +168,7 @@ struct Query {
   int eQType;                   /* Query type */
   xjd1_stmt *pStmt;             /* Statement this query is part of */
   Query *pOuter;                /* Next outer query for a subquery */
+  JsonNode *pOut;               /* Output expression */
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
@@ -298,6 +299,8 @@ JsonNode *xjd1DataSrcValue(DataSrc*);
 /******************************** expr.c *************************************/
 int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
 int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*);
+JsonNode *xjd1ExprEval(Expr*);
+JsonNode *xjd1ExprListEval(ExprList*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
 int xjd1ExprListClose(ExprList*);

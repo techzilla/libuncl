@@ -47,6 +47,10 @@ int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
 */
 int xjd1QueryRewind(Query *p){
   if( p==0 ) return XJD1_OK;
+  if( p->pOut ){
+    xjd1JsonFree(p->pOut);
+    p->pOut = 0;
+  }
   if( p->eQType==TK_SELECT ){
     xjd1DataSrcRewind(p->u.simple.pFrom);
   }else{
@@ -64,6 +68,10 @@ int xjd1QueryRewind(Query *p){
 int xjd1QueryStep(Query *p){
   int rc;
   if( p==0 ) return XJD1_DONE;
+  if( p->pOut ){
+    xjd1JsonFree(p->pOut);
+    p->pOut = 0;
+  }
   if( p->eQType==TK_SELECT ){
     do{
       rc = xjd1DataSrcStep(p->u.simple.pFrom);
@@ -93,8 +101,13 @@ int xjd1QueryStep(Query *p){
 JsonNode *xjd1QueryValue(Query *p){
   JsonNode *pOut = 0;
   if( p ){
+    if( p->pOut ){ xjd1JsonFree(p->pOut); p->pOut = 0; }
     if( p->eQType==TK_SELECT ){
-      pOut = xjd1DataSrcValue(p->u.simple.pFrom);
+      if(  p->u.simple.pCol && p->u.simple.pCol->nEItem>0 ){
+        pOut = p->pOut = xjd1ExprListEval(p->u.simple.pCol);
+      }else{
+        pOut = xjd1DataSrcValue(p->u.simple.pFrom);
+      }
     }else if( !p->u.compound.doneLeft ){
       pOut = xjd1QueryValue(p->u.compound.pLeft);
     }else{
@@ -129,6 +142,10 @@ int xjd1QueryEOF(Query *p){
 int xjd1QueryClose(Query *pQuery){
   int rc = XJD1_OK;
   if( pQuery==0 ) return rc;
+  if( pQuery->pOut ){
+    xjd1JsonFree(pQuery->pOut);
+    pQuery->pOut = 0;
+  }
   if( pQuery->eQType==TK_SELECT ){
     xjd1ExprListClose(pQuery->u.simple.pCol);
     xjd1DataSrcClose(pQuery->u.simple.pFrom);

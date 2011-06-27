@@ -140,12 +140,68 @@ int xjd1ExprListClose(ExprList *p){
 }
 
 /*
+** Return a numeric value for a JsonNode.  Do whatever type
+** conversions are necessary.
+*/
+static double realFromJson(JsonNode *pNode){
+  double r = 0.0;
+  if( pNode==0 ) return 0.0;
+  switch( pNode->eJType ){
+    case XJD1_TRUE: {
+      r = 1.0;
+      break;
+    }
+    case XJD1_REAL: {
+      r = pNode->u.r;
+      break;
+    }
+    case XJD1_STRING: {
+      r = atof(pNode->u.z);
+      break;
+    }
+  }
+  return r;
+}
+
+/*
+** Compute a real value from an expression
+*/
+static double realFromExpr(Expr *p){
+  double r = 0.0;
+  if( p==0 ) return 0.0;
+  switch( p->eType ){
+    case TK_STRING:
+    case TK_INTEGER:
+    case TK_FLOAT: {
+      r = atof(p->u.tk.z);
+      break;
+    }
+    case TK_TRUE: {
+      r = 1.0;
+      break;
+    }
+    case TK_FALSE:
+    case TK_NULL: {
+      break;
+    }
+    default: {
+      JsonNode *pNode = xjd1ExprEval(p);
+      r = realFromJson(pNode);
+      xjd1JsonFree(pNode);
+      break;
+    }
+  }
+  return r;
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
 */
 JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
+  double rLeft, rRight;
   pRes = malloc( sizeof(*pRes) );
   if( pRes==0 ) return 0;
   memset(pRes, 0, sizeof(*pRes));
@@ -160,7 +216,6 @@ JsonNode *xjd1ExprEval(Expr *p){
       pRes->eJType = XJD1_REAL;
       break;
     }
-    default:
     case TK_NULL: {
       pRes->eJType = XJD1_NULL;
       break;
@@ -194,6 +249,17 @@ JsonNode *xjd1ExprEval(Expr *p){
       pRes->eJType = XJD1_STRING;
       break;
     }
+    case TK_PLUS: {
+      rLeft = realFromExpr(p->u.bi.pLeft);
+      rRight = realFromExpr(p->u.bi.pRight);
+      pRes->eJType = XJD1_REAL;
+      pRes->u.r = rLeft+rRight;  break;
+      break;
+    }
+    default: {
+      pRes->eJType = XJD1_NULL;
+      break;
+    }
   }
   return pRes;
 }
@@ -224,4 +290,36 @@ int xjd1ExprTrue(Expr *p){
   }
   xjd1JsonFree(pValue);
   return rc;
+}
+
+/*
+** Convert an ExprList into a JSON structure.
+*/
+JsonNode *xjd1ExprListEval(ExprList *pList){
+  JsonNode *pRes;
+  JsonStructElem *pElem, **ppLast;
+  int i;
+  ExprItem *pItem;
+
+  pRes = malloc( sizeof(*pRes) );
+  if( pRes==0 ) return 0;
+  memset(pRes, 0, sizeof(*pRes));
+  pRes->eJType = XJD1_STRUCT;
+  ppLast = &pRes->u.pStruct;
+  if( pList==0 ) return pRes;
+  for(i=0; i<pList->nEItem; i++){
+    pItem = &pList->apEItem[i];
+    pElem = malloc( sizeof(*pElem) );
+    if( pElem==0 ) break;
+    memset(pElem, 0, sizeof(*pElem));
+    pElem->zLabel = malloc( pItem->tkAs.n+1 );
+    if( pElem->zLabel ){
+      memcpy(pElem->zLabel, pItem->tkAs.z, pItem->tkAs.n);
+      pElem->zLabel[pItem->tkAs.n] = 0;
+    }
+    pElem->pValue = xjd1ExprEval(pItem->pExpr);
+    *ppLast = pElem;
+    ppLast = &pElem->pNext;
+  }
+  return pRes;  
 }
