@@ -102,8 +102,7 @@ struct Shell {
   int nLine;           /* Current line number */
   FILE *pIn;           /* Input file */
   int isTTY;           /* True if pIn is a TTY */
-  int isTest;          /* True if the --test flag is used */
-  int parseTrace;      /* True if the --parser-trace flag is used */
+  int shellFlags;      /* Flag settings */
   String testOut;      /* Output from a test case */
   char zModule[50];    /* Mame of current test module */
   char zTestCase[50];  /* Name of current testcase */
@@ -114,10 +113,59 @@ struct Shell {
 };
 
 /*
+** Flag names
+*/
+#define SHELL_PARSER_TRACE     0x00001
+#define SHELL_CMD_TRACE        0x00002
+#define SHELL_ECHO             0x00004
+static const struct {
+  const char *zName;
+  int iValue;
+} FlagNames[] = {
+  {  "parser-trace",   SHELL_PARSER_TRACE },
+  {  "cmd-trace",      SHELL_CMD_TRACE    },
+  {  "echo",           SHELL_ECHO         },
+};
+
+/*
+** Convert a flag name into a mask.
+*/
+static int flagMask(const char *zName){
+  int i;
+  for(i=0; i<sizeof(FlagNames)/sizeof(FlagNames[0]); i++){
+    if( strcmp(zName, FlagNames[i].zName)==0 ){
+      return FlagNames[i].iValue;
+    }
+  }
+  return 0;
+}
+
+/*
 ** True for space characters.
 */
 static int shellIsSpace(char c){
   return c==' ' || c=='\t' || c=='\r' || c=='\n';
+}
+
+/*
+** Set flags
+*/
+static void shellSet(Shell *p, int argc, char **argv){
+  int i;
+  if( argc>=2 ){
+    p->shellFlags |= flagMask(argv[1]);
+  }else{
+    for(i=0; i<sizeof(FlagNames)/sizeof(FlagNames[0]); i++){
+      printf("%-20s %s\n", 
+        FlagNames[i].zName,
+        (p->shellFlags & FlagNames[i].iValue)!=0 ? "on" : "off");
+    }
+  }
+}
+static void shellClear(Shell *p, int argc, char **argv){
+  if( argc>=2 ){
+    p->shellFlags &= ~flagMask(argv[1]);
+  }
 }
 
 /*
@@ -315,6 +363,14 @@ static void shellRead(Shell *p, int argc, char **argv){
 }
 
 /*
+** Command:  .breakpoint
+** A place to seet a breakpoint
+*/
+static void shellBreakpoint(Shell *p, int argc, char **argv){
+  /* no-op */
+}
+
+/*
 ** Process a command intended for this shell - not for the database.
 */
 static void processMetaCommand(Shell *p){
@@ -328,18 +384,24 @@ static void processMetaCommand(Shell *p){
     void (*xCmd)(Shell*,int,char**);    /* Procedure to run the command */
     const char *zHelp;                  /* Help string */
   } cmds[] = {
-    { "quit",     shellQuit,      ".quit"               },
-    { "testcase", shellTestcase,  ".testcase NAME"      },
-    { "result",   shellResult,    ".result TEXT"        },
-    { "glob",     shellGlob,      ".glob PATTERN"       },
-    { "notglob",  shellNotGlob,   ".notglob PATTERN"    },
-    { "read",     shellRead,      ".read FILENAME"      },
-    { "open",     shellOpenDB,    ".open DATABASE"      },
-    { "new",      shellNewDB,     ".new DATABASE"       },
+    { "quit",       shellQuit,        ".quit"               },
+    { "testcase",   shellTestcase,    ".testcase NAME"      },
+    { "result",     shellResult,      ".result TEXT"        },
+    { "glob",       shellGlob,        ".glob PATTERN"       },
+    { "notglob",    shellNotGlob,     ".notglob PATTERN"    },
+    { "read",       shellRead,        ".read FILENAME"      },
+    { "open",       shellOpenDB,      ".open DATABASE"      },
+    { "new",        shellNewDB,       ".new DATABASE"       },
+    { "set",        shellSet,         ".set FLAG"           },
+    { "clear",      shellClear,       ".clear FLAG"         },
+    { "breakpoint", shellBreakpoint,  ".breakpoint"         },
   };
 
   /* Remove trailing whitespace from the command */
   z = xjd1StringText(&p->inBuf);
+  if( p->shellFlags & SHELL_ECHO ){
+    fprintf(stdout, "%s", z);
+  }
   n = xjd1StringLen(&p->inBuf);
   while( n>0 && shellIsSpace(z[n-1]) ){ n--; }
   z[n] = 0;
@@ -380,8 +442,18 @@ static void processMetaCommand(Shell *p){
 static void processOneStatement(Shell *p, const char *zCmd){
   xjd1_stmt *pStmt;
   int N, rc;
+  if( p->shellFlags & SHELL_ECHO ){
+    fprintf(stdout, "%s\n", zCmd);
+  }
+  xjd1_config(p->pDb, XJD1_CONFIG_PARSERTRACE, 
+              (p->shellFlags & SHELL_PARSER_TRACE)!=0);
   rc = xjd1_stmt_new(p->pDb, zCmd, &pStmt, &N);
   if( rc==XJD1_OK ){
+    if( p->shellFlags & SHELL_CMD_TRACE ){
+      char *zTrace = xjd1_stmt_debug_listing(pStmt);
+      if( zTrace ) printf("%s", zTrace);
+      free(zTrace);
+    }
     do{
       rc = xjd1_stmt_step(pStmt);
       if( rc==XJD1_ROW ){
