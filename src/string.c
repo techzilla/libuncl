@@ -134,6 +134,19 @@ PRIVATE void xjd1StringDelete(String *pStr){
 }
 
 /*
+** Consume the first N characters from the front of the string.
+*/
+PRIVATE void xjd1StringRemovePrefix(String *pStr, int N){
+  if( pStr==0 ) return;
+  if( pStr->nUsed<=N ){
+    xjd1StringTruncate(pStr);
+  }else{
+    memmove(pStr->zBuf, &pStr->zBuf[N], (pStr->nUsed+1)-N);
+    pStr->nUsed -= N;
+  }
+}
+
+/*
 ** Conversion types fall into various categories as defined by the
 ** following enumeration.
 */

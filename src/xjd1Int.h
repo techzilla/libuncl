@@ -338,6 +338,7 @@ int xjd1StringAppend(String*, const char*, int);
 void xjd1StringTruncate(String*);
 void xjd1StringClear(String*);
 void xjd1StringDelete(String*);
+void xjd1StringRemovePrefix(String*,int);
 int xjd1StringVAppendF(String*, const char*, va_list);
 int xjd1StringAppendF(String*, const char*, ...);
 
