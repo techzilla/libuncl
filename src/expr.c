@@ -212,12 +212,16 @@ static double realFromExpr(Expr *p){
 JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
   double rLeft, rRight;
-  pRes = xjd1JsonNew();
-  if( pRes==0 ) return 0;
   if( p==0 ){
-    pRes->eJType = XJD1_NULL;
+    pRes = xjd1JsonNew();
+    if( pRes ) pRes->eJType = XJD1_NULL;
     return pRes;
   }
+  if( p->eType==TK_JVALUE ){
+    return xjd1JsonParse(p->u.tk.z, p->u.tk.n);
+  }
+  pRes = xjd1JsonNew();
+  if( pRes==0 ) return 0;
   switch( p->eType ){
     case TK_INTEGER:
     case TK_FLOAT: {

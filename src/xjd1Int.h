@@ -312,7 +312,7 @@ JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
 JsonNode *xjd1JsonRef(JsonNode*);
 void xjd1JsonRender(String*, JsonNode*);
 JsonNode *xjd1JsonNew(void);
-JsonNode *xjd1JsonEditable(JsonNode*);
+JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
 
 /******************************** malloc.c ***********************************/

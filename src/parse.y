@@ -307,10 +307,10 @@ oneselect(A) ::= SELECT selcollist_opt(S) from(F) where_opt(W)
 %type selcollist {ExprList*}
 selcollist_opt(A) ::= .                             {A = 0;}
 selcollist_opt(A) ::= selcollist(X).                {A = X;}
-selcollist(A) ::= expr(Y).                          {A = apndExpr(p,0,Y,0);}
-selcollist(A) ::= expr(Y) AS ID(Z).                 {A = apndExpr(p,0,Y,&Z);}
-selcollist(A) ::= selcollist(X) COMMA expr(Y).      {A = apndExpr(p,X,Y,0);}
-selcollist(A) ::= selcollist(X) COMMA expr(Y) AS ID(Z).
+selcollist(A) ::= jexpr(Y).                         {A = apndExpr(p,0,Y,0);}
+selcollist(A) ::= jexpr(Y) AS ID(Z).                {A = apndExpr(p,0,Y,&Z);}
+selcollist(A) ::= selcollist(X) COMMA jexpr(Y).     {A = apndExpr(p,X,Y,0);}
+selcollist(A) ::= selcollist(X) COMMA jexpr(Y) AS ID(Z).
                                                     {A = apndExpr(p,X,Y,&Z);}
 
 // A complete FROM clause.

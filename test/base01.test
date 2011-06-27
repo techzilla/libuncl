@@ -22,3 +22,6 @@ SELECT 1 AS p, 2 AS q FROM abc;
 .testcase 131
 SELECT 1 AS p, 2+3 AS q FROM abc;
 .result {"p":1,"q":5}
+.testcase 132
+SELECT 1 AS p, {"x":[1,2,3],"y":11} AS q FROM abc;
+.result {"p":1,"q":{"x":[1,2,3],"y":11}}
