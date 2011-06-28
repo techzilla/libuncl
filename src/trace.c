@@ -145,9 +145,10 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
     case TK_INSERT: {
       xjd1StringAppendF(pOut, "%*sInsert: %.*s\n",
          indent, "", pCmd->u.ins.name.n, pCmd->u.ins.name.z);
-      if( pCmd->u.ins.jvalue.n ){
-         xjd1StringAppendF(pOut, "%*s value=%.*s\n",
-             indent, "", pCmd->u.ins.jvalue.n, pCmd->u.ins.jvalue.z);
+      if( pCmd->u.ins.pValue ){
+         xjd1StringAppendF(pOut, "%*s value: ");
+         xjd1TraceExpr(pOut, pCmd->u.ins.pValue);
+         xjd1StringAppend(pOut, "\n", 1);
       }else{
          xjd1TraceQuery(pOut, indent+3, pCmd->u.ins.pQuery);
       }
@@ -177,9 +178,10 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
     case TK_PRAGMA: {
       xjd1StringAppendF(pOut, "%*sPRAGMA: %.*s",
          indent, "", pCmd->u.prag.name.n, pCmd->u.prag.name.z);
-      if( pCmd->u.prag.jvalue.n>0 ){
-        xjd1StringAppendF(pOut,"(%.*s)\n",
-           pCmd->u.prag.jvalue.n, pCmd->u.prag.jvalue.z);
+      if( pCmd->u.prag.pValue ){
+        xjd1StringAppend(pOut, "(", 1);
+        xjd1TraceExpr(pOut, pCmd->u.ins.pValue);
+        xjd1StringAppend(pOut, ")\n", 2);
       }else{
         xjd1StringAppend(pOut, "\n", 1);
       }
@@ -203,9 +205,10 @@ void xjd1TraceQuery(String *pOut, int indent, const Query *p){
           indent, "", xjd1TokenName(p->eQType));
   switch( p->eQType ){
     case TK_SELECT: {
-      if( p->u.simple.pCol ){
-        xjd1StringAppendF(pOut, "%*sColumn-List:\n", indent, "");
-        xjd1TraceExprList(pOut, indent+3, p->u.simple.pCol);
+      if( p->u.simple.pRes ){
+        xjd1StringAppendF(pOut, "%*sResult: ", indent, "");
+        xjd1TraceExpr(pOut, p->u.simple.pRes);
+        xjd1StringAppend(pOut, "\n", 1);
       }
       if( p->u.simple.pFrom ){
         xjd1StringAppendF(pOut, "%*sFROM:\n", indent, "");
@@ -298,17 +301,9 @@ void xjd1TraceDataSrc(String *pOut, int indent, const DataSrc *p){
 void xjd1TraceExpr(String *pOut, const Expr *p){
   if( p==0 ) return;
   switch( p->eType ){
-    case TK_INTEGER:
-    case TK_FLOAT:
-    case TK_STRING:
-    case TK_ID:
-    case TK_TRUE:
-    case TK_FALSE:
-    case TK_NULL: {
-      xjd1StringAppendF(pOut, "%s.%.*s",
-          xjd1TokenName(p->eType),
-          p->u.tk.n, p->u.tk.z);
-      return;
+    case TK_JVALUE: {
+      xjd1JsonRender(pOut, p->u.json.p);
+      break;
     }
     case TK_DOT:
     case TK_AND:

@@ -67,6 +67,45 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
 /////////////////////////// Expression Processing /////////////////////////////
 //
 
+%include {
+  /* A JSON literal for a real number */
+  static JsonNode *jsonReal(Parse *p, Token *pTok){
+    JsonNode *pNew = xjd1JsonNew(p->pPool);
+    if( pNew ){
+      pNew->eJType = XJD1_REAL;
+      pNew->u.r = atof(pTok->z);
+    }
+    return pNew;
+  }
+
+  /* A JSON literal for a string */
+  static JsonNode *jsonString(Parse *p, Token *pTok){
+    JsonNode *pNew = xjd1JsonNew(p->pPool);
+    if( pNew ){
+      pNew->eJType = XJD1_STRING;
+      pNew->u.z = xjd1PoolDup(p->pPool, pTok->z, pTok->n);
+    }
+    return pNew;
+  }
+
+  /* A JSON literal for a boolean or NULL */
+  static JsonNode *jsonType(Parse *p, int eJType){
+    JsonNode *pNew = xjd1JsonNew(p->pPool);
+    if( pNew ){
+      pNew->eJType = eJType;
+    }
+    return pNew;
+  }
+}
+%type jvalue {JsonNode*}
+jvalue(A) ::= INTEGER(X).              {A = jsonReal(p,&X);}
+jvalue(A) ::= FLOAT(X).                {A = jsonReal(p,&X);}
+jvalue(A) ::= STRING(X).               {A = jsonString(p,&X);}
+jvalue(A) ::= TRUE.                    {A = jsonType(p,XJD1_TRUE);}
+jvalue(A) ::= FALSE.                   {A = jsonType(p,XJD1_FALSE);}
+jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
+
+
 %left OR.
 %left AND.
 %right NOT.
@@ -81,13 +120,13 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
 %right BITNOT.
 
 %include {
-  /* Generate an Expr object from a token */
-  static Expr *tokExpr(Parse *p, int eType, Token *pTok){
+  /* Generate an Expr object from an identifer token */
+  static Expr *idExpr(Parse *p, Token *pTok){
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
-      pNew->eType = eType; 
+      pNew->eType = TK_ID;
       pNew->eClass = XJD1_EXPR_TK;
-      pNew->u.tk = *pTok;
+      pNew->u.tk.t = *pTok;
     }
     return pNew;
   }
@@ -123,7 +162,40 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     if( pNew ){
       pNew->eType = TK_SELECT;
       pNew->eClass = XJD1_EXPR_Q;
-      pNew->u.q = pQuery;
+      pNew->u.subq.p = pQuery;
+    }
+    return pNew;
+  }
+
+  /* Generate an Expr object that is a structure */
+  static Expr *stExpr(Parse *p, ExprList *pList){
+    Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eType = TK_STRUCT;
+      pNew->eClass = XJD1_EXPR_STRUCT;
+      pNew->u.st = pList;
+    }
+    return pNew;
+  }
+
+  /* Generate an Expr object that is an array7 */
+  static Expr *arExpr(Parse *p, ExprList *pList){
+    Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eType = TK_ARRAY;
+      pNew->eClass = XJD1_EXPR_ARRAY;
+      pNew->u.ar = pList;
+    }
+    return pNew;
+  }
+
+  /* Generate an Expr object that is JSON value literal */
+  static Expr *jsonExpr(Parse *p, JsonNode *pNode){
+    Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eType = TK_JVALUE;
+      pNew->eClass = XJD1_EXPR_JSON;
+      pNew->u.json.p = pNode;
     }
     return pNew;
   }
@@ -139,8 +211,8 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     }
     if( pList->nEAlloc<=pList->nEItem ){
       ExprItem *pNew;
-      int n = pList->nEAlloc*2;
-      if( n==0 ) n = 4;
+      int n = pList->nEAlloc*4;
+      if( n==0 ) n = 10;
       pNew = xjd1PoolMalloc(p->pPool, sizeof(ExprItem)*n);
       if( pNew==0 ) return pList;
       memcpy(pNew, pList->apEItem, pList->nEItem*sizeof(ExprItem));
@@ -158,31 +230,29 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
   }
 }
 
-jvalue(A) ::= INTEGER(X).  {A = X;}
-jvalue(A) ::= FLOAT(X).    {A = X;}
-jvalue(A) ::= STRING(X).   {A = X;}
-jvalue(A) ::= TRUE(X).     {A = X;}
-jvalue(A) ::= FALSE(X).    {A = X;}
-jvalue(A) ::= NULL(X).     {A = X;}
-jvalue(A) ::= JVALUE(X).   {A = X;}
-
-%type jexpr {Expr*}
-jexpr(A) ::= expr(X).      {A = X;}
-jexpr(A) ::= JVALUE(X).    {A = tokExpr(p,@X,&X);}
-
 %type lvalue {Expr*}
-lvalue(A) ::= ID(X).                  {A = tokExpr(p,@X,&X);}
-lvalue(A) ::= lvalue(X) DOT ID(Y).    {A = biExpr(p,X,TK_DOT,tokExpr(p,@Y,&Y));}
-lvalue(A) ::= lvalue(X) LB expr(Y) RB.{A = biExpr(p,X,TK_LB,Y);}
+lvalue(A) ::= ID(X).                   {A = idExpr(p,&X);}
+lvalue(A) ::= lvalue(X) DOT ID(Y).     {A = biExpr(p,X,TK_DOT,idExpr(p,&Y));}
+lvalue(A) ::= lvalue(X) LB expr(Y) RB. {A = biExpr(p,X,TK_LB,Y);}
 
 %type expr {Expr*}
-expr(A) ::= lvalue(X).    {A = X;}
-expr(A) ::= INTEGER(X).   {A = tokExpr(p,@X,&X);}
-expr(A) ::= FLOAT(X).     {A = tokExpr(p,@X,&X);}
-expr(A) ::= STRING(X).    {A = tokExpr(p,@X,&X);}
-expr(A) ::= TRUE(X).      {A = tokExpr(p,@X,&X);}
-expr(A) ::= FALSE(X).     {A = tokExpr(p,@X,&X);}
-expr(A) ::= NULL(X).      {A = tokExpr(p,@X,&X);}
+expr(A) ::= lvalue(X).               {A = X;}
+expr(A) ::= jvalue(X).               {A = jsonExpr(p,X);}
+expr(A) ::= LC structlist(X) RC.     {A = stExpr(p,X);}
+expr(A) ::= LC RC.                   {A = stExpr(p,0);}
+expr(A) ::= LB arraylist(X) RB.      {A = arExpr(p,X);}
+expr(A) ::= LB RB.                   {A = arExpr(p,0);}
+
+%type structlist {ExprList*}
+structlist(A) ::= ID|STRING(Y) COLON expr(Z).    {A = apndExpr(p,0,Z,&Y);}
+structlist(A) ::= structlist(X) COMMA ID|STRING(Y) COLON expr(Z).
+                                                 {A = apndExpr(p,X,Z,&Y);}
+%type arraylist {ExprList*}
+arraylist(A) ::= expr(Y).                        {A = apndExpr(p,0,Y,0);}
+arraylist(A) ::= arraylist(X) COMMA expr(Y).     {A = apndExpr(p,X,Y,0);}
+
+
+
 expr(A) ::= ID(X) LP exprlist(Y) RP.  {A = funcExpr(p,&X,Y);}
 expr(A) ::= expr(X) AND(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) OR(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
@@ -205,6 +275,7 @@ expr(A) ::= MINUS(OP) expr(X). [BITNOT]          {A = biExpr(p,X,@OP,0);}
 expr(A) ::= PLUS(OP) expr(X). [BITNOT]           {A = biExpr(p,X,@OP,0);}
 expr(A) ::= LP select(X) RP.                     {A = subqExpr(p,X);}
 expr(A) ::= LP expr(X) RP.                       {A = X;}
+
 
 %type exprlist {ExprList*}
 %type nexprlist {ExprList*}
@@ -246,7 +317,7 @@ cmd(A) ::= select(X).  {
   /* Construct a simple query object */
   static Query *simpleQuery(
     Parse *p,
-    ExprList *pCol,
+    Expr *pRes,
     DataSrc *pFrom,
     Expr *pWhere,
     GroupByHaving *pGroupBy,
@@ -256,7 +327,7 @@ cmd(A) ::= select(X).  {
     Query *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eQType = TK_SELECT;
-      pNew->u.simple.pCol = pCol;
+      pNew->u.simple.pRes = pRes;
       pNew->u.simple.pFrom = pFrom;
       pNew->u.simple.pWhere = pWhere;
       pNew->u.simple.pGroupBy = pGroupBy ? pGroupBy->pGroupBy : 0;
@@ -293,25 +364,20 @@ select(A) ::= eselect(X) EXCEPT(OP) eselect(Y).    {A=compoundQuery(p,X,@OP,Y);}
 select(A) ::= eselect(X) INTERSECT(OP) eselect(Y). {A=compoundQuery(p,X,@OP,Y);}
 eselect(A) ::= select(X).                          {A = X;}
 eselect(A) ::= expr(X).       // must be (SELECT...)
-  {A = X->u.q;}
+  {A = X->u.subq.p;}
 
-oneselect(A) ::= SELECT selcollist_opt(S) from(F) where_opt(W)
+oneselect(A) ::= SELECT expr_opt(S) from(F) where_opt(W)
                     groupby_opt(G) orderby_opt(O) limit_opt(L).
   {A = simpleQuery(p,S,F,W,&G,O,&L);}
 
 
-// selcollist is a list of expressions that are to become the return
-// values of the SELECT statement.
+// The result set of an expression can be either an JSON expression
+// or nothing.
 //
-%type selcollist_opt {ExprList*}
-%type selcollist {ExprList*}
-selcollist_opt(A) ::= .                             {A = 0;}
-selcollist_opt(A) ::= selcollist(X).                {A = X;}
-selcollist(A) ::= jexpr(Y).                         {A = apndExpr(p,0,Y,0);}
-selcollist(A) ::= jexpr(Y) AS ID(Z).                {A = apndExpr(p,0,Y,&Z);}
-selcollist(A) ::= selcollist(X) COMMA jexpr(Y).     {A = apndExpr(p,X,Y,0);}
-selcollist(A) ::= selcollist(X) COMMA jexpr(Y) AS ID(Z).
-                                                    {A = apndExpr(p,X,Y,&Z);}
+%type expr_opt {Expr*}
+expr_opt(A) ::= .                       {A = 0;}
+expr_opt(A) ::= expr(X).                {A = X;}
+
 
 // A complete FROM clause.
 //
@@ -476,11 +542,11 @@ cmd(A) ::= UPDATE tabname(N) SET setlist(L) where_opt(W). {
 }
 
 %type setlist {ExprList*}
-setlist(A) ::= setlist(X) COMMA lvalue(Y) EQ jexpr(Z). {
+setlist(A) ::= setlist(X) COMMA lvalue(Y) EQ expr(Z). {
    A = apndExpr(p,X,Y,0);
    A = apndExpr(p,A,Z,0);
 }
-setlist(A) ::= lvalue(Y) EQ jexpr(Z). {
+setlist(A) ::= lvalue(Y) EQ expr(Z). {
    A = apndExpr(p,0,Y,0);
    A = apndExpr(p,A,Z,0);
 }
@@ -489,12 +555,12 @@ setlist(A) ::= lvalue(Y) EQ jexpr(Z). {
 
 ////////////////////////// The INSERT command /////////////////////////////////
 //
-cmd(A) ::= INSERT INTO tabname(N) VALUE jvalue(V). {
+cmd(A) ::= INSERT INTO tabname(N) VALUE expr(V). {
   Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
     pNew->u.ins.name = N;
-    pNew->u.ins.jvalue = V;
+    pNew->u.ins.pValue = V;
   }
   A = pNew;
 }
@@ -511,20 +577,18 @@ cmd(A) ::= INSERT INTO tabname(N) select(Q). {
 ////////////////////////// The PRAGMA command /////////////////////////////////
 //
 %include {
-  static Command *makePrag(Parse *p, Token *pName, Token *pValue){
+  static Command *makePrag(Parse *p, Token *pName, Expr *pValue){
     Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eCmdType = TK_PRAGMA;
       pNew->u.prag.name = *pName;
       if( pValue ){
-        pNew->u.prag.jvalue = *pValue;
-      }else{
-        pNew->u.prag.jvalue.n = 0;
+        pNew->u.prag.pValue = pValue;
       }
     }
     return pNew;
   }
 }
-cmd(A) ::= PRAGMA ID(N).                  {A = makePrag(p,&N,0);}
-cmd(A) ::= PRAGMA ID(N) EQ jvalue(V).     {A = makePrag(p,&N,&V);}
-cmd(A) ::= PRAGMA ID(N) LP jvalue(V) RP.  {A = makePrag(p,&N,&V);}
+cmd(A) ::= PRAGMA ID(N).                {A = makePrag(p,&N,0);}
+cmd(A) ::= PRAGMA ID(N) EQ expr(V).     {A = makePrag(p,&N,V);}
+cmd(A) ::= PRAGMA ID(N) LP expr(V) RP.  {A = makePrag(p,&N,V);}

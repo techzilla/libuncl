@@ -4,8 +4,8 @@
 .testcase 100
 CREATE DATASET abc;
 CREATE DATASET def;
-INSERT INTO abc VALUE {"name":"abc"};
-INSERT INTO def VALUE {"name":"def"};
+INSERT INTO abc VALUE { name:"abc" };
+INSERT INTO def VALUE { name:"def" };
 .result
 
 .testcase 110
@@ -17,11 +17,11 @@ SELECT FROM def;
 .result {"name":"def"}
 
 .testcase 130
-SELECT 1 AS p, 2 AS q FROM abc;
+SELECT { p:1, q:2 } FROM abc;
 .result {"p":1,"q":2}
 .testcase 131
-SELECT 1 AS p, 2+3 AS q FROM abc;
+SELECT {p:1, q:2+3} FROM abc;
 .result {"p":1,"q":5}
 .testcase 132
-SELECT 1 AS p, {"x":[1,2,3],"y":11} AS q FROM abc;
+SELECT {p:1, q:{x:[1,2,3],y:11} FROM abc;
 .result {"p":1,"q":{"x":[1,2,3],"y":11}}

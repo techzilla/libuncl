@@ -27,7 +27,7 @@ int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
   pQuery->pStmt = pStmt;
   pQuery->pOuter = pOuter;
   if( pQuery->eQType==TK_SELECT ){
-    xjd1ExprListInit(pQuery->u.simple.pCol, pStmt, pQuery);
+    xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery);
     xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
     xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery);
     xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery);
@@ -103,8 +103,8 @@ JsonNode *xjd1QueryValue(Query *p){
   if( p ){
     if( p->pOut ){ xjd1JsonFree(p->pOut); p->pOut = 0; }
     if( p->eQType==TK_SELECT ){
-      if(  p->u.simple.pCol && p->u.simple.pCol->nEItem>0 ){
-        pOut = p->pOut = xjd1ExprListEval(p->u.simple.pCol);
+      if(  p->u.simple.pRes ){
+        pOut = p->pOut = xjd1ExprEval(p->u.simple.pRes);
       }else{
         pOut = xjd1DataSrcValue(p->u.simple.pFrom);
       }
@@ -147,7 +147,7 @@ int xjd1QueryClose(Query *pQuery){
     pQuery->pOut = 0;
   }
   if( pQuery->eQType==TK_SELECT ){
-    xjd1ExprListClose(pQuery->u.simple.pCol);
+    xjd1ExprClose(pQuery->u.simple.pRes);
     xjd1DataSrcClose(pQuery->u.simple.pFrom);
     xjd1ExprClose(pQuery->u.simple.pWhere);
     xjd1ExprListClose(pQuery->u.simple.pGroupBy);

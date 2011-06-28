@@ -155,12 +155,8 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
                  "INSERT INTO ... SELECT not yet implemented");
         break;
       }
-      pNode = xjd1JsonParse(pCmd->u.ins.jvalue.z, pCmd->u.ins.jvalue.n);
-      if( pNode==0 ){
-        xjd1Error(pStmt->pConn, XJD1_ERROR,
-                  "malformed JSON");
-        break;
-      }
+      pNode = xjd1ExprEval(pCmd->u.ins.pValue);
+      if( pNode==0 ) break;
       xjd1StringInit(&json,0,0);
       xjd1JsonRender(&json, pNode);
       xjd1JsonFree(pNode);

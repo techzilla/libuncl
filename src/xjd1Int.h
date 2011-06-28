@@ -40,6 +40,9 @@
 #define TK_ILLEGAL        102
 #define TK_CREATEDATASET  103
 #define TK_DROPDATASET    104
+#define TK_ARRAY          105
+#define TK_STRUCT         106
+#define TK_JVALUE         107
 
 typedef unsigned char u8;
 typedef unsigned short int u16;
@@ -141,18 +144,65 @@ struct Expr {
       Expr *pLeft;             /* Left operand.  Only operand for unary ops */
       Expr *pRight;            /* Right operand.  NULL for unary ops */
     } bi;
-    Token tk;               /* Token values. eClass=EXPR_TK */
+    struct {                /* Identifiers */
+      Token t;                 /* token value.  eClass=EXPR_TK */
+    } tk;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       Token name;              /* Name of the function */
       ExprList *args;          /* List of argumnts */
     } func;
-    Query *q;               /* Subqueries. eClass=EXPR_Q */
+    struct {                /* Subqueries.  eClass=EXPR_Q */
+      Query *p;                /* The subquery */
+    } subq;
+    struct {                /* Literal value.  eClass=EXPR_JSON */
+      JsonNode *p;             /* The value */
+    } json;
+    ExprList *ar;           /* Array literal.  eClass=EXPR_ARRAY */
+    ExprList *st;           /* Struct literal.  eClass=EXPR_STRUCT */
   } u;
 };
 #define XJD1_EXPR_BI      1
 #define XJD1_EXPR_TK      2
 #define XJD1_EXPR_FUNC    3
 #define XJD1_EXPR_Q       4
+#define XJD1_EXPR_JSON    5
+#define XJD1_EXPR_ARRAY   6
+#define XJD1_EXPR_STRUCT  7
+
+/* A single element of a JSON structure */
+struct JsonStructElem {
+  char *zLabel;             /* Label on this element */
+  JsonStructElem *pNext;    /* Next element of the structure */
+  JsonNode *pValue;         /* Value of this element */
+};
+
+/* A single element of a JSON value */
+struct JsonNode {
+  int eJType;               /* Element type */
+  int nRef;                 /* Number of references */
+  union {
+    int b;                  /* Boolean value */
+    double r;               /* Real value */
+    char *z;                /* String value */
+    struct {                /* Array value */
+      int nElem;               /* Number of elements */
+      JsonNode **apElem;       /* Value of each element */
+    } ar;
+    struct {                /* Struct value */
+      JsonStructElem *pFirst;  /* List of structure elements */
+      JsonStructElem *pLast;   /* Last element of the list */
+    } st;
+  } u;
+};
+
+/* Values for eJType */
+#define XJD1_FALSE     0
+#define XJD1_TRUE      1
+#define XJD1_REAL      2
+#define XJD1_NULL      3
+#define XJD1_STRING    4
+#define XJD1_ARRAY     5
+#define XJD1_STRUCT    6
 
 /* Parsing context */
 struct Parse {
@@ -177,7 +227,7 @@ struct Query {
       int doneLeft;               /* True if left is run to completion */
     } compound;
     struct {                    /* For simple queries */
-      ExprList *pCol;             /* List of result columns */
+      Expr *pRes;                 /* Result JSON string */
       DataSrc *pFrom;             /* The FROM clause */
       Expr *pWhere;               /* The WHERE clause */
       ExprList *pGroupBy;         /* The GROUP BY clause */
@@ -233,7 +283,7 @@ struct Command {
     } q;
     struct {                /* Insert */
       Token name;              /* Table to insert into */
-      Token jvalue;            /* Value to be inserted */
+      Expr *pValue;            /* Value to be inserted */
       Query *pQuery;           /* Query to insert from */
     } ins;
     struct {                /* Delete */
@@ -247,41 +297,10 @@ struct Command {
     } update;
     struct {                /* Pragma */
       Token name;              /* Pragma name */
-      Token jvalue;            /* Argument or empty string */
+      Expr *pValue;            /* Argument or empty string */
     } prag;
   } u;
 };
-
-/* A single element of a JSON structure */
-struct JsonStructElem {
-  char *zLabel;             /* Label on this element */
-  JsonStructElem *pNext;    /* Next element of the structure */
-  JsonNode *pValue;         /* Value of this element */
-};
-
-/* A single element of a JSON value */
-struct JsonNode {
-  int eJType;               /* Element type */
-  int nRef;                 /* Number of references */
-  union {
-    double r;               /* Real value */
-    char *z;                /* String value */
-    struct {                /* Array value */
-      int nElem;               /* Number of elements */
-      JsonNode **apElem;       /* Value of each element */
-    } array;
-    JsonStructElem *pStruct;   /* List of structure elements */
-  } u;
-};
-
-/* Values for eJType */
-#define XJD1_FALSE     0
-#define XJD1_TRUE      1
-#define XJD1_REAL      2
-#define XJD1_NULL      3
-#define XJD1_STRING    4
-#define XJD1_ARRAY     5
-#define XJD1_STRUCT    6
 
 /******************************** context.c **********************************/
 void xjd1ContextUnref(xjd1_context*);
@@ -302,7 +321,6 @@ JsonNode *xjd1DataSrcValue(DataSrc*);
 int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
 int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*);
 JsonNode *xjd1ExprEval(Expr*);
-JsonNode *xjd1ExprListEval(ExprList*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
 int xjd1ExprListClose(ExprList*);
@@ -311,7 +329,7 @@ int xjd1ExprListClose(ExprList*);
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
 JsonNode *xjd1JsonRef(JsonNode*);
 void xjd1JsonRender(String*, JsonNode*);
-JsonNode *xjd1JsonNew(void);
+JsonNode *xjd1JsonNew(Pool*);
 JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
 

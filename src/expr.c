@@ -57,16 +57,6 @@ static int walkExpr(Expr *p, WalkAction *pAction){
     rc = pAction->xNodeAction(p, pAction);
   }
   switch( p->eClass ){
-    case XJD1_EXPR_Q: {
-      if( pAction->xQueryAction ){
-        rc = pAction->xQueryAction(p, pAction);
-      }
-      break;
-    }
-    case XJD1_EXPR_FUNC: {
-      walkExprList(p->u.func.args, pAction);
-      break;
-    }
     case XJD1_EXPR_BI: {
       walkExpr(p->u.bi.pLeft, pAction);
       walkExpr(p->u.bi.pRight, pAction);
@@ -74,6 +64,28 @@ static int walkExpr(Expr *p, WalkAction *pAction){
     }
     case XJD1_EXPR_TK: {
       /* Nothing to do */
+      break;
+    }
+    case XJD1_EXPR_FUNC: {
+      walkExprList(p->u.func.args, pAction);
+      break;
+    }
+    case XJD1_EXPR_Q: {
+      if( pAction->xQueryAction ){
+        rc = pAction->xQueryAction(p, pAction);
+      }
+      break;
+    }
+    case XJD1_EXPR_JSON: {
+      /* Nothing to do */
+      break;
+    }
+    case XJD1_EXPR_ARRAY: {
+      walkExprList(p->u.ar, pAction);
+      break;
+    }
+    case XJD1_EXPR_STRUCT: {
+      walkExprList(p->u.st, pAction);
       break;
     }
   }
@@ -89,7 +101,7 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
   assert( p );
   p->pStmt = pAction->pStmt;
   if( p->eClass==XJD1_EXPR_Q ){
-    rc = xjd1QueryInit(p->u.q, pAction->pStmt, pAction->pQuery);
+    rc = xjd1QueryInit(p->u.subq.p, pAction->pStmt, pAction->pQuery);
   }
   return rc;
 }
@@ -126,7 +138,7 @@ int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery){
 static int walkCloseQueryCallback(Expr *p, WalkAction *pAction){
   assert( p );
   assert( p->eType==TK_SELECT );
-  return xjd1QueryClose(p->u.q);
+  return xjd1QueryClose(p->u.subq.p);
 }
 
 /*
@@ -178,28 +190,16 @@ static double realFromJson(JsonNode *pNode){
 */
 static double realFromExpr(Expr *p){
   double r = 0.0;
+  JsonNode *pNode;
   if( p==0 ) return 0.0;
-  switch( p->eType ){
-    case TK_STRING:
-    case TK_INTEGER:
-    case TK_FLOAT: {
-      r = atof(p->u.tk.z);
-      break;
-    }
-    case TK_TRUE: {
-      r = 1.0;
-      break;
-    }
-    case TK_FALSE:
-    case TK_NULL: {
-      break;
-    }
-    default: {
-      JsonNode *pNode = xjd1ExprEval(p);
-      r = realFromJson(pNode);
-      xjd1JsonFree(pNode);
-      break;
-    }
+  if( p->eType==TK_JVALUE ){
+    pNode = p->u.json.p;
+  }else{
+    pNode = xjd1ExprEval(p);
+  }
+  r = realFromJson(pNode);
+  if( p->eType!=TK_JVALUE ){
+    xjd1JsonFree(pNode);
   }
   return r;
 }
@@ -213,55 +213,16 @@ JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
   double rLeft, rRight;
   if( p==0 ){
-    pRes = xjd1JsonNew();
+    pRes = xjd1JsonNew(0);
     if( pRes ) pRes->eJType = XJD1_NULL;
     return pRes;
   }
   if( p->eType==TK_JVALUE ){
-    return xjd1JsonParse(p->u.tk.z, p->u.tk.n);
+    return xjd1JsonRef(p->u.json.p);
   }
-  pRes = xjd1JsonNew();
+  pRes = xjd1JsonNew(0);
   if( pRes==0 ) return 0;
   switch( p->eType ){
-    case TK_INTEGER:
-    case TK_FLOAT: {
-      pRes->u.r = atof(p->u.tk.z);
-      pRes->eJType = XJD1_REAL;
-      break;
-    }
-    case TK_NULL: {
-      pRes->eJType = XJD1_NULL;
-      break;
-    }
-    case TK_TRUE: {
-      pRes->eJType = XJD1_TRUE;
-      break;
-    }
-    case TK_FALSE: {
-      pRes->eJType = XJD1_FALSE;
-      break;
-    }
-    case TK_STRING: {
-      pRes->u.z = malloc( p->u.tk.n );
-      if( pRes->u.z ){
-        int i, j;
-        for(i=1, j=0; i<p->u.tk.n-1; i++){
-          char c = p->u.tk.z[i];
-          if( c=='\\' ){
-            c = p->u.tk.z[++i];
-            if( c=='n' ){
-              c = '\n';
-            }else if( c=='t' ){
-              c = '\t';
-            }
-          }
-          pRes->u.z[++j] = c;
-        }
-        pRes->u.z[j] = 0;
-      }
-      pRes->eJType = XJD1_STRING;
-      break;
-    }
     case TK_PLUS: {
       rLeft = realFromExpr(p->u.bi.pLeft);
       rRight = realFromExpr(p->u.bi.pRight);
@@ -303,35 +264,4 @@ int xjd1ExprTrue(Expr *p){
   }
   xjd1JsonFree(pValue);
   return rc;
-}
-
-/*
-** Convert an ExprList into a JSON structure.
-*/
-JsonNode *xjd1ExprListEval(ExprList *pList){
-  JsonNode *pRes;
-  JsonStructElem *pElem, **ppLast;
-  int i;
-  ExprItem *pItem;
-
-  pRes = xjd1JsonNew();
-  if( pRes==0 ) return 0;
-  pRes->eJType = XJD1_STRUCT;
-  ppLast = &pRes->u.pStruct;
-  if( pList==0 ) return pRes;
-  for(i=0; i<pList->nEItem; i++){
-    pItem = &pList->apEItem[i];
-    pElem = malloc( sizeof(*pElem) );
-    if( pElem==0 ) break;
-    memset(pElem, 0, sizeof(*pElem));
-    pElem->zLabel = malloc( pItem->tkAs.n+1 );
-    if( pElem->zLabel ){
-      memcpy(pElem->zLabel, pItem->tkAs.z, pItem->tkAs.n);
-      pElem->zLabel[pItem->tkAs.n] = 0;
-    }
-    pElem->pValue = xjd1ExprEval(pItem->pExpr);
-    *ppLast = pElem;
-    ppLast = &pElem->pNext;
-  }
-  return pRes;  
 }

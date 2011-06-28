@@ -189,6 +189,22 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       *tokenType = TK_RP;
       return 1;
     }
+    case '[': {
+      *tokenType = TK_LB;
+      return 1;
+    }
+    case ']': {
+      *tokenType = TK_RB;
+      return 1;
+    }
+    case '{': {
+      *tokenType = TK_LC;
+      return 1;
+    }
+    case '}': {
+      *tokenType = TK_RC;
+      return 1;
+    }
     case ';': {
       *tokenType = TK_SEMI;
       return 1;
@@ -268,6 +284,10 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       *tokenType = TK_COMMA;
       return 1;
     }
+    case ':': {
+      *tokenType = TK_COLON;
+      return 1;
+    }
     case '&': {
       *tokenType = TK_BITAND;
       return 1;
@@ -319,48 +339,6 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       while( xjd1Isident(z[i]) ){
         *tokenType = TK_ILLEGAL;
         i++;
-      }
-      return i;
-    }
-    case '[': {
-      int depth = 1;
-      *tokenType = TK_ILLEGAL;
-      for(i=1; (c=z[i])!=0; i++){
-        if( c=='"' ){
-          for(i++; (c=z[i])!=0 && c!='"'; i++){
-            if( c=='\\' && z[i+1] ) i++;
-          }
-          if( c==0 ) return i;
-        }else if( c=='[' ){
-          depth++;
-        }else if( c==']' ){
-          depth--;
-          if( depth==0 ){
-            *tokenType = TK_JVALUE;
-            return i+1;
-          }
-        }
-      }
-      return i;
-    }
-    case '{': {
-      int depth = 1;
-      *tokenType = TK_ILLEGAL;
-      for(i=1; (c=z[i])!=0; i++){
-        if( c=='"' ){
-          for(i++; (c=z[i])!=0 && c!='"'; i++){
-            if( c=='\\' && z[i+1] ) i++;
-          }
-          if( c==0 ) return i;
-        }else if( c=='{' ){
-          depth++;
-        }else if( c=='}' ){
-          depth--;
-          if( depth==0 ){
-            *tokenType = TK_JVALUE;
-            return i+1;
-          }
-        }
       }
       return i;
     }

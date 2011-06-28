@@ -31,15 +31,15 @@ void xjd1JsonFree(JsonNode *p){
       }
       case XJD1_ARRAY: {
         int i;
-        for(i=0; i<p->u.array.nElem; i++){
-          xjd1JsonFree(p->u.array.apElem[i]);
+        for(i=0; i<p->u.ar.nElem; i++){
+          xjd1JsonFree(p->u.ar.apElem[i]);
         }
-        free(p->u.array.apElem);
+        free(p->u.ar.apElem);
         break;
       }
       case XJD1_STRUCT: {
         JsonStructElem *pElem, *pNext;
-        for(pElem=p->u.pStruct; pElem; pElem=pNext){
+        for(pElem=p->u.st.pFirst; pElem; pElem=pNext){
           pNext = pElem->pNext;
           free(pElem->zLabel);
           xjd1JsonFree(pElem->pValue);
@@ -55,11 +55,17 @@ void xjd1JsonFree(JsonNode *p){
 /*
 ** Allocate a new Json node.
 */
-JsonNode *xjd1JsonNew(void){
-  JsonNode *p = malloc( sizeof(*p) );
-  if( p ){
-    memset(p, 0, sizeof(*p));
-    p->nRef = 1;
+JsonNode *xjd1JsonNew(Pool *pPool){
+  JsonNode *p;
+  if( pPool ){
+    p = xjd1PoolMalloc(pPool, sizeof(*p));
+    if( p ) p->nRef = 10000;
+  }else{
+    p = malloc( sizeof(*p) );
+    if( p ){
+      memset(p, 0, sizeof(*p));
+      p->nRef = 1;
+    }
   }
   return p;
 }
@@ -86,7 +92,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
   JsonNode *pNew;
   if( p==0 ) return 0;
   if( p->nRef==1 ) return p;
-  pNew = xjd1JsonNew();
+  pNew = xjd1JsonNew(0);
   if( pNew==0 ) return 0;
   pNew->eJType = p->eJType;
   switch( pNew->eJType ){
@@ -96,23 +102,23 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
     }
     case XJD1_ARRAY: {
       JsonNode **ap;
-      pNew->u.array.apElem = ap = malloc( sizeof(JsonNode*)*p->u.array.nElem );
+      pNew->u.ar.apElem = ap = malloc( sizeof(JsonNode*)*p->u.ar.nElem );
       if( ap==0 ){
         pNew->eJType = XJD1_NULL;
       }else{
         int i;
-        pNew->u.array.nElem = p->u.array.nElem;
-        for(i=0; i<p->u.array.nElem; i++){
-          ap[i] = xjd1JsonEdit(p->u.array.apElem[i]);
+        pNew->u.ar.nElem = p->u.ar.nElem;
+        for(i=0; i<p->u.ar.nElem; i++){
+          ap[i] = xjd1JsonEdit(p->u.ar.apElem[i]);
         }
       }
       break;
     }
     case XJD1_STRUCT: {
       JsonStructElem *pSrc, *pDest, **ppPrev;
-      ppPrev = &pNew->u.pStruct;
-      for(pSrc=p->u.pStruct; pSrc; pSrc=pSrc->pNext){
-        pDest = malloc( sizeof(*pDest) );
+      ppPrev = &pNew->u.st.pFirst;
+      for(pSrc=p->u.st.pFirst; pSrc; pSrc=pSrc->pNext){
+        pNew->u.st.pLast = pDest = malloc( sizeof(*pDest) );
         if( pDest==0 ) break;
         memset(pDest, 0, sizeof(*pDest));
         *ppPrev = pDest;
@@ -182,10 +188,10 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
       case XJD1_ARRAY: {
         char cSep = '[';
         int i;
-        for(i=0; i<p->u.array.nElem; i++){
+        for(i=0; i<p->u.ar.nElem; i++){
           xjd1StringAppend(pOut, &cSep, 1);
           cSep = ',';
-          xjd1JsonRender(pOut, p->u.array.apElem[i]);
+          xjd1JsonRender(pOut, p->u.ar.apElem[i]);
         }
         xjd1StringAppend(pOut, "]", 1);
         break;
@@ -193,7 +199,7 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
       case XJD1_STRUCT: {
         char cSep = '{';
         JsonStructElem *pElem;
-        for(pElem=p->u.pStruct; pElem; pElem=pElem->pNext){
+        for(pElem=p->u.st.pFirst; pElem; pElem=pElem->pNext){
           xjd1StringAppend(pOut, &cSep, 1);
           cSep = ',';
           renderString(pOut, pElem->zLabel);
@@ -435,7 +441,7 @@ static char *tokenDequoteString(JsonStr *pIn){
 */
 static JsonNode *parseJson(JsonStr *pIn){
   JsonNode *pNew;
-  pNew = xjd1JsonNew();
+  pNew = xjd1JsonNew(0);
   if( pNew==0 ) return 0;
   pNew->eJType = tokenType(pIn);
   switch( pNew->eJType ){
@@ -443,7 +449,7 @@ static JsonNode *parseJson(JsonStr *pIn){
       JsonStructElem **ppTail;
       tokenNext(pIn);
       if( tokenType(pIn)==JSON_END_STRUCT ) break;
-      ppTail = &pNew->u.pStruct;
+      ppTail = &pNew->u.st.pFirst;
       while( 1 ){
         JsonStructElem *pElem;
         if( tokenType(pIn)!=JSON_STRING ){
@@ -453,6 +459,7 @@ static JsonNode *parseJson(JsonStr *pIn){
         if( pElem==0 ) goto json_error;
         memset(pElem, 0, sizeof(*pElem));
         *ppTail = pElem;
+        pNew->u.st.pLast = pElem;
         ppTail = &pElem->pNext;
         pElem->zLabel = tokenDequoteString(pIn);
         tokenNext(pIn);
@@ -477,15 +484,15 @@ static JsonNode *parseJson(JsonStr *pIn){
       tokenNext(pIn);
       if( tokenType(pIn)==JSON_END_ARRAY ) break;
       while( 1 ){
-        if( pNew->u.array.nElem>=nAlloc ){
+        if( pNew->u.ar.nElem>=nAlloc ){
           JsonNode **pNewArray;
           nAlloc = nAlloc*2 + 5;
-          pNewArray = realloc(pNew->u.array.apElem,
+          pNewArray = realloc(pNew->u.ar.apElem,
                               sizeof(JsonNode*)*nAlloc);
           if( pNewArray==0 ) goto json_error;
-          pNew->u.array.apElem = pNewArray;
+          pNew->u.ar.apElem = pNewArray;
         }
-        pNew->u.array.apElem[pNew->u.array.nElem++] = parseJson(pIn);
+        pNew->u.ar.apElem[pNew->u.ar.nElem++] = parseJson(pIn);
         if( tokenType(pIn)==JSON_COMMA ){
           tokenNext(pIn);
         }else if( tokenType(pIn)==JSON_END_ARRAY ){
