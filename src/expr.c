@@ -222,7 +222,40 @@ JsonNode *xjd1ExprEval(Expr *p){
   }
   pRes = xjd1JsonNew(0);
   if( pRes==0 ) return 0;
+  pRes->eJType = XJD1_NULL;
   switch( p->eType ){
+    case TK_STRUCT: {
+      int i;
+      JsonStructElem *pElem, **ppPrev;
+      ExprList *pList = p->u.st;
+      ppPrev = &pRes->u.st.pFirst;
+      pRes->eJType = XJD1_STRUCT;
+      for(i=0; i<pList->nEItem; i++){
+        ExprItem *pItem = &pList->apEItem[i];
+        pElem = malloc( sizeof(*pElem) );
+        if( pElem==0 ) break;
+        *ppPrev = pRes->u.st.pLast = pElem;
+        ppPrev = &pElem->pNext;
+        memset(pElem, 0, sizeof(*pElem));
+        pElem->zLabel = xjd1PoolDup(0, pItem->tkAs.z, pItem->tkAs.n);
+        pElem->pValue = xjd1ExprEval(pItem->pExpr);
+      }
+      break;
+    }
+    case TK_ARRAY: {
+      int i;
+      ExprList *pList = p->u.st;
+      pRes->u.ar.apElem = malloc( pList->nEItem*sizeof(JsonNode*) );
+      if( pRes->u.ar.apElem ){
+        pRes->u.ar.nElem = pList->nEItem;
+        pRes->eJType = XJD1_ARRAY;
+        for(i=0; i<pList->nEItem; i++){
+          ExprItem *pItem = &pList->apEItem[i];
+          pRes->u.ar.apElem[i] = xjd1ExprEval(pItem->pExpr);
+        }
+      }
+      break;
+    }
     case TK_PLUS: {
       rLeft = realFromExpr(p->u.bi.pLeft);
       rRight = realFromExpr(p->u.bi.pRight);

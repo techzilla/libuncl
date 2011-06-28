@@ -27,6 +27,12 @@ static const struct {
 } aToken[] = {
   /* Begin paste of parse_txt.h */
   { TK_SEMI,             "TK_SEMI"            },
+  { TK_INTEGER,          "TK_INTEGER"         },
+  { TK_FLOAT,            "TK_FLOAT"           },
+  { TK_STRING,           "TK_STRING"          },
+  { TK_TRUE,             "TK_TRUE"            },
+  { TK_FALSE,            "TK_FALSE"           },
+  { TK_NULL,             "TK_NULL"            },
   { TK_OR,               "TK_OR"              },
   { TK_AND,              "TK_AND"             },
   { TK_NOT,              "TK_NOT"             },
@@ -53,27 +59,23 @@ static const struct {
   { TK_CONCAT,           "TK_CONCAT"          },
   { TK_COLLATE,          "TK_COLLATE"         },
   { TK_BITNOT,           "TK_BITNOT"          },
-  { TK_INTEGER,          "TK_INTEGER"         },
-  { TK_FLOAT,            "TK_FLOAT"           },
-  { TK_STRING,           "TK_STRING"          },
-  { TK_TRUE,             "TK_TRUE"            },
-  { TK_FALSE,            "TK_FALSE"           },
-  { TK_NULL,             "TK_NULL"            },
-  { TK_JVALUE,           "TK_JVALUE"          },
   { TK_ID,               "TK_ID"              },
   { TK_DOT,              "TK_DOT"             },
   { TK_LB,               "TK_LB"              },
   { TK_RB,               "TK_RB"              },
+  { TK_LC,               "TK_LC"              },
+  { TK_RC,               "TK_RC"              },
+  { TK_COLON,            "TK_COLON"           },
+  { TK_COMMA,            "TK_COMMA"           },
   { TK_LP,               "TK_LP"              },
   { TK_RP,               "TK_RP"              },
-  { TK_COMMA,            "TK_COMMA"           },
   { TK_UNION,            "TK_UNION"           },
   { TK_EXCEPT,           "TK_EXCEPT"          },
   { TK_INTERSECT,        "TK_INTERSECT"       },
   { TK_ALL,              "TK_ALL"             },
   { TK_SELECT,           "TK_SELECT"          },
-  { TK_AS,               "TK_AS"              },
   { TK_FROM,             "TK_FROM"            },
+  { TK_AS,               "TK_AS"              },
   { TK_FLATTENOP,        "TK_FLATTENOP"       },
   { TK_GROUP,            "TK_GROUP"           },
   { TK_BY,               "TK_BY"              },
@@ -98,6 +100,7 @@ static const struct {
   { TK_INSERT,           "TK_INSERT"          },
   { TK_INTO,             "TK_INTO"            },
   { TK_VALUE,            "TK_VALUE"           },
+  { TK_PRAGMA,           "TK_PRAGMA"          },
   /* End paste of parse_txt.h */
   { TK_NOT_LIKEOP,       "TK_NOT_LIKEOP"      },
   { TK_NOT_IS,           "TK_NOT_IS"          },
@@ -303,6 +306,31 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
   switch( p->eType ){
     case TK_JVALUE: {
       xjd1JsonRender(pOut, p->u.json.p);
+      break;
+    }
+    case TK_STRUCT: {
+      int i;
+      ExprList *pList = p->u.st;
+      xjd1StringAppend(pOut, "{", 1);
+      for(i=0; i<pList->nEItem; i++){
+        ExprItem *pItem = &pList->apEItem[i];
+        if( i>0 ) xjd1StringAppend(pOut, ",", 1);
+        xjd1StringAppendF(pOut, "%.*s:", pItem->tkAs.n, pItem->tkAs.z);
+        xjd1TraceExpr(pOut, pItem->pExpr);
+      }
+      xjd1StringAppend(pOut, "}", 1);
+      break;
+    }
+    case TK_ARRAY: {
+      int i;
+      ExprList *pList = p->u.st;
+      xjd1StringAppend(pOut, "[", 1);
+      for(i=0; i<pList->nEItem; i++){
+        ExprItem *pItem = &pList->apEItem[i];
+        if( i>0 ) xjd1StringAppend(pOut, ",", 1);
+        xjd1TraceExpr(pOut, pItem->pExpr);
+      }
+      xjd1StringAppend(pOut, "]", 1);
       break;
     }
     case TK_DOT:

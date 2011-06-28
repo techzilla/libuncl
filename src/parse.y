@@ -84,6 +84,7 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     if( pNew ){
       pNew->eJType = XJD1_STRING;
       pNew->u.z = xjd1PoolDup(p->pPool, pTok->z, pTok->n);
+      xjd1DequoteString(pNew->u.z, pTok->n);
     }
     return pNew;
   }

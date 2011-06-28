@@ -393,6 +393,40 @@ token_eof:
   return;
 }
 
+/*
+** Dequote a string in-place.
+*/
+void xjd1DequoteString(char *z, int n){
+  int i, j;
+  char c;
+  assert( n>=2 );
+  assert( z[0]=='"' && z[n-1]=='"' );
+  for(i=1, j=0; i<n-1; i++){
+    if( z[i]!='\\' ){
+      z[j++] = z[i];
+    }else{
+      i++;
+      c = z[i];
+      if( c=='b' ){
+        z[j++] = '\b';
+      }else if( c=='f' ){
+        z[j++] = '\f';
+      }else if( c=='n' ){
+        z[j++] = '\n';
+      }else if( c=='r' ){
+        z[j++] = '\r';
+      }else if( c=='t' ){
+        z[j++] = '\t';
+      }else if( c=='u' && i<n-4 ){
+
+      }else{
+        z[j++] = c;
+      }
+    }
+  }
+  z[j] = 0;
+}
+
 /* Convert the current token (which must be a string) into a true
 ** string (resolving all of the backslash escapes) and return a pointer
 ** to the true string.  Space is obtained form malloc().
@@ -400,37 +434,14 @@ token_eof:
 static char *tokenDequoteString(JsonStr *pIn){
   const char *zIn;
   char *zOut;
-  int i, j, n;
-  char c;
+  int n;
   zIn = &pIn->zIn[pIn->iCur];
   zOut = malloc( pIn->n );
   if( zOut==0 ) return 0;
   assert( zIn[0]=='"' && zIn[pIn->n-1]=='"' );
   n = pIn->n-1;
-  for(i=1, j=0; i<n; i++){
-    if( zIn[i]!='\\' ){
-      zOut[j++] = zIn[i];
-    }else{
-      i++;
-      c = zIn[i];
-      if( c=='b' ){
-        zOut[j++] = '\b';
-      }else if( c=='f' ){
-        zOut[j++] = '\f';
-      }else if( c=='n' ){
-        zOut[j++] = '\n';
-      }else if( c=='r' ){
-        zOut[j++] = '\r';
-      }else if( c=='t' ){
-        zOut[j++] = '\t';
-      }else if( c=='u' && i<n-4 ){
-
-      }else{
-        zOut[j++] = c;
-      }
-    }
-  }
-  zOut[j] = 0;
+  memcpy(zOut, zIn, pIn->n);
+  xjd1DequoteString(zOut, pIn->n);
   return zOut;
 }
 

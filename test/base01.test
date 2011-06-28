@@ -23,5 +23,5 @@ SELECT { p:1, q:2 } FROM abc;
 SELECT {p:1, q:2+3} FROM abc;
 .result {"p":1,"q":5}
 .testcase 132
-SELECT {p:1, q:{x:[1,2,3],y:11} FROM abc;
+SELECT {p:1, q:{x:[1,2,3],y:11}} FROM abc;
 .result {"p":1,"q":{"x":[1,2,3],"y":11}}

@@ -332,6 +332,7 @@ void xjd1JsonRender(String*, JsonNode*);
 JsonNode *xjd1JsonNew(Pool*);
 JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
+void xjd1DequoteString(char*,int);
 
 /******************************** malloc.c ***********************************/
 Pool *xjd1PoolNew(void);
