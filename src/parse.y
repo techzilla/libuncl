@@ -132,7 +132,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     if( pNew ){
       pNew->eType = TK_ID;
       pNew->eClass = XJD1_EXPR_TK;
-      pNew->u.tk.zId = tokenStr(p, pTok);
+      pNew->u.id.zId = tokenStr(p, pTok);
     }
     return pNew;
   }

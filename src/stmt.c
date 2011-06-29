@@ -178,7 +178,9 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       rc = xjd1QueryStep(pQuery);
       xjd1StringClear(&pStmt->retValue);
       if( rc==XJD1_ROW ){
-        xjd1JsonRender(&pStmt->retValue, xjd1QueryValue(pQuery));
+        JsonNode *pValue = xjd1QueryDoc(pQuery, 0);
+        xjd1JsonRender(&pStmt->retValue, pValue);
+        xjd1JsonFree(pValue);
         pStmt->okValue = 1;
       }else{
         pStmt->okValue = 0;
@@ -237,4 +239,25 @@ char *xjd1_stmt_debug_listing(xjd1_stmt *p){
   xjd1StringInit(&x, 0, 0);
   xjd1TraceCommand(&x, 0, p->pCmd);
   return x.zBuf;
+}
+
+/*
+** Return the current value for a particular document in the given
+** statement.
+**
+** The caller is responsible for invoking xjd1JsonFree() on the result.
+*/
+JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
+  Command *pCmd;
+  JsonNode *pRes = 0;
+  if( pStmt==0 ) return 0;
+  pCmd = pStmt->pCmd;
+  if( pCmd==0 ) return 0;
+  switch( pCmd->eCmdType ){
+    case TK_SELECT: {
+      pRes = xjd1QueryDoc(pCmd->u.q.pQuery, zDocName);
+      break;
+    }
+  }
+  return pRes;
 }

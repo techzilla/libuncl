@@ -25,3 +25,8 @@ SELECT {p:1, q:2+3} FROM abc;
 .testcase 132
 SELECT {p:1, q:{x:[1,2,3],y:11}} FROM abc;
 .result {"p":1,"q":{"x":[1,2,3],"y":11}}
+
+.breakpoint
+.testcase 140
+SELECT { x:abc.name, y:10 } FROM abc;
+.result {"x":"abc","y":10}

@@ -150,7 +150,7 @@ struct Expr {
     } lvalue;
     struct {                /* Identifiers */
       char *zId;               /* token value.  eClass=EXPR_TK */
-    } tk;
+    } id;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       char *zFName;            /* Name of the function */
       ExprList *args;          /* List of argumnts */
@@ -224,7 +224,6 @@ struct Query {
   int eQType;                   /* Query type */
   xjd1_stmt *pStmt;             /* Statement this query is part of */
   Query *pOuter;                /* Next outer query for a subquery */
-  JsonNode *pOut;               /* Output expression */
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
@@ -320,7 +319,7 @@ int xjd1DataSrcRewind(DataSrc*);
 int xjd1DataSrcStep(DataSrc*);
 int xjd1DataSrcEOF(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);
-JsonNode *xjd1DataSrcValue(DataSrc*);
+JsonNode *xjd1DataSrcDoc(DataSrc*, const char*);
 
 /******************************** expr.c *************************************/
 int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
@@ -356,9 +355,10 @@ int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
 int xjd1QueryEOF(Query*);
 int xjd1QueryClose(Query*);
-JsonNode *xjd1QueryValue(Query*);
+JsonNode *xjd1QueryDoc(Query*, const char*);
 
 /******************************** stmt.c *************************************/
+JsonNode *xjd1StmtDoc(xjd1_stmt*, const char*);
 
 /******************************** string.c ***********************************/
 int xjd1Strlen30(const char *);

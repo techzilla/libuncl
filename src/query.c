@@ -47,10 +47,6 @@ int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
 */
 int xjd1QueryRewind(Query *p){
   if( p==0 ) return XJD1_OK;
-  if( p->pOut ){
-    xjd1JsonFree(p->pOut);
-    p->pOut = 0;
-  }
   if( p->eQType==TK_SELECT ){
     xjd1DataSrcRewind(p->u.simple.pFrom);
   }else{
@@ -68,10 +64,6 @@ int xjd1QueryRewind(Query *p){
 int xjd1QueryStep(Query *p){
   int rc;
   if( p==0 ) return XJD1_DONE;
-  if( p->pOut ){
-    xjd1JsonFree(p->pOut);
-    p->pOut = 0;
-  }
   if( p->eQType==TK_SELECT ){
     do{
       rc = xjd1DataSrcStep(p->u.simple.pFrom);
@@ -93,25 +85,24 @@ int xjd1QueryStep(Query *p){
 }
 
 /*
-** Return the value from the most recent query step.  
+** Return a document currently referenced by a query.  If zDocName==0 then
+** return the constructed result set of the query.
 **
-** The pointer returned is managed by the query.  It will be freed
-** by the next call to QueryStep(), QueryReset(), or QueryClose().
+** The caller must invoke JsonFree() when it is done with this value.
 */
-JsonNode *xjd1QueryValue(Query *p){
+JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
   JsonNode *pOut = 0;
   if( p ){
-    if( p->pOut ){ xjd1JsonFree(p->pOut); p->pOut = 0; }
     if( p->eQType==TK_SELECT ){
-      if(  p->u.simple.pRes ){
-        pOut = p->pOut = xjd1ExprEval(p->u.simple.pRes);
+      if( zDocName==0 && p->u.simple.pRes ){
+        pOut = xjd1ExprEval(p->u.simple.pRes);
       }else{
-        pOut = xjd1DataSrcValue(p->u.simple.pFrom);
+        pOut = xjd1DataSrcDoc(p->u.simple.pFrom, zDocName);
       }
     }else if( !p->u.compound.doneLeft ){
-      pOut = xjd1QueryValue(p->u.compound.pLeft);
+      pOut = xjd1QueryDoc(p->u.compound.pLeft, zDocName);
     }else{
-      pOut = xjd1QueryValue(p->u.compound.pRight);
+      pOut = xjd1QueryDoc(p->u.compound.pRight, zDocName);
     }
   }
   return pOut;
@@ -142,10 +133,6 @@ int xjd1QueryEOF(Query *p){
 int xjd1QueryClose(Query *pQuery){
   int rc = XJD1_OK;
   if( pQuery==0 ) return rc;
-  if( pQuery->pOut ){
-    xjd1JsonFree(pQuery->pOut);
-    pQuery->pOut = 0;
-  }
   if( pQuery->eQType==TK_SELECT ){
     xjd1ExprClose(pQuery->u.simple.pRes);
     xjd1DataSrcClose(pQuery->u.simple.pFrom);

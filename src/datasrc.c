@@ -72,20 +72,37 @@ int xjd1DataSrcStep(DataSrc *p){
 }
 
 /*
-** Return the value after the most recent Step.  The returned JsonNode
-** is managed by the DataSrc object will be freed by the next call to
-** DataSrcStep(), DataSrcRewind(), or DataSrcClose().
+** Return the document that this data source if the document if the AS
+** name of the document is zDocName or if zDocName==0.  The AS name is
+** important since a join might have multiple documents.
+**
+** xjd1JsonRef() has been called on the returned string.  The caller
+** must invoke xjd1JsonFree().
 */
-JsonNode *xjd1DataSrcValue(DataSrc *p){
-  JsonNode *pOut = 0;
+JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
+  JsonNode *pRes = 0;
   if( p==0 ) return 0;
+  if( zDocName && p->zAs && strcmp(p->zAs, zDocName) ){
+    return xjd1JsonRef(p->pValue);
+  }
   switch( p->eDSType ){
+    case TK_COMMA: {
+      pRes = xjd1DataSrcDoc(p->u.join.pLeft, zDocName);
+      if( pRes==0 ) pRes = xjd1DataSrcDoc(p->u.join.pRight, zDocName);
+      break;
+    }
     case TK_ID: {
-      pOut = p->pValue;
+      if( zDocName==0 || strcmp(p->u.tab.zName, zDocName)==0 ){
+        pRes = xjd1JsonRef(p->pValue);
+      }
+      break;
+    }
+    default: {
+      pRes = xjd1JsonRef(p->pValue);
       break;
     }
   }
-  return pOut;
+  return pRes;
 }
 
 /*

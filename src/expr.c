@@ -118,7 +118,7 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
 int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkInitCallback;
+  sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExpr(p, &sAction);
@@ -250,7 +250,7 @@ JsonNode *xjd1ExprEval(Expr *p){
       return nullJson();   /* TBD */
     }
     case TK_ID: {
-      return 0;
+      return xjd1StmtDoc(p->pStmt, p->u.id.zId);
     }
   }
   pRes = xjd1JsonNew(0);
