@@ -90,7 +90,7 @@ static const struct {
   { TK_ROLLBACK,         "TK_ROLLBACK"        },
   { TK_COMMIT,           "TK_COMMIT"          },
   { TK_CREATE,           "TK_CREATE"          },
-  { TK_DATASET,          "TK_DATASET"         },
+  { TK_COLLECTION,       "TK_COLLECTION"      },
   { TK_IF,               "TK_IF"              },
   { TK_EXISTS,           "TK_EXISTS"          },
   { TK_DROP,             "TK_DROP"            },
@@ -107,8 +107,8 @@ static const struct {
   { TK_FUNCTION,         "TK_FUNCTION"        },
   { TK_SPACE,            "TK_SPACE"           },
   { TK_ILLEGAL,          "TK_ILLEGAL"         },
-  { TK_CREATEDATASET,    "TK_CREATEDATASET"   },
-  { TK_DROPDATASET,      "TK_DROPDATASET"     },
+  { TK_CREATECOLLECTION, "TK_CREATECOLLECTION"},
+  { TK_DROPCOLLECTION,   "TK_DROPCOLLECTION"  },
 };
 
 /*
@@ -133,13 +133,13 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       xjd1TraceQuery(pOut, indent+3, pCmd->u.q.pQuery);
       break;
     }
-    case TK_CREATEDATASET: {
+    case TK_CREATECOLLECTION: {
       xjd1StringAppendF(pOut, "%*sCreate-Dataset: \"%.*s\" if-not-exists=%d\n",
          indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
          pCmd->u.crtab.ifExists);
       break;
     }
-    case TK_DROPDATASET: {
+    case TK_DROPCOLLECTION: {
       xjd1StringAppendF(pOut, "%*sDrop-Dataset: \"%.*s\" if-exists=%d\n",
          indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
          pCmd->u.crtab.ifExists);

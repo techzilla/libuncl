@@ -2,8 +2,8 @@
 --
 .new t1.db
 .testcase 100
-CREATE DATASET abc;
-CREATE DATASET def;
+CREATE COLLECTION abc;
+CREATE COLLECTION def;
 INSERT INTO abc VALUE { name:"abc" };
 INSERT INTO def VALUE { name:"def" };
 .result

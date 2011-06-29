@@ -112,7 +112,7 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
   pCmd = pStmt->pCmd;
   if( pCmd==0 ) return rc;
   switch( pCmd->eCmdType ){
-    case TK_CREATEDATASET: {
+    case TK_CREATECOLLECTION: {
       char *zSql;
       int res;
       char *zErr = 0;
@@ -128,7 +128,7 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       sqlite3_free(zSql);
       break;
     }
-    case TK_DROPDATASET: {
+    case TK_DROPCOLLECTION: {
       char *zSql;
       int res;
       char *zErr = 0;
