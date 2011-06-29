@@ -26,7 +26,16 @@ SELECT {p:1, q:2+3} FROM abc;
 SELECT {p:1, q:{x:[1,2,3],y:11}} FROM abc;
 .result {"p":1,"q":{"x":[1,2,3],"y":11}}
 
-.breakpoint
 .testcase 140
 SELECT { x:abc.name, y:10 } FROM abc;
 .result {"x":"abc","y":10}
+.testcase 141
+SELECT { x:[abc.name,abc,abc.xyz], y:10 } FROM abc;
+.result {"x":["abc",{"name":"abc"},null],"y":10}
+
+.testcase 150
+SELECT FROM abc WHERE abc.name=="abc";
+.result {"name":"abc"}
+.testcase 151
+SELECT FROM abc WHERE abc.name=="xyz";
+.result

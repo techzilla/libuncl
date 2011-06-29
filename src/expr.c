@@ -17,7 +17,7 @@
 ** This file contains code used to evaluate expressions at run-time.
 */
 #include "xjd1Int.h"
-
+#include <math.h>
 
 /*
 ** Information passed down into the expression walker.
@@ -166,30 +166,6 @@ int xjd1ExprListClose(ExprList *p){
 }
 
 /*
-** Return a numeric value for a JsonNode.  Do whatever type
-** conversions are necessary.
-*/
-static double realFromJson(JsonNode *pNode){
-  double r = 0.0;
-  if( pNode==0 ) return 0.0;
-  switch( pNode->eJType ){
-    case XJD1_TRUE: {
-      r = 1.0;
-      break;
-    }
-    case XJD1_REAL: {
-      r = pNode->u.r;
-      break;
-    }
-    case XJD1_STRING: {
-      r = atof(pNode->u.z);
-      break;
-    }
-  }
-  return r;
-}
-
-/*
 ** Compute a real value from an expression
 */
 static double realFromExpr(Expr *p){
@@ -201,11 +177,26 @@ static double realFromExpr(Expr *p){
   }else{
     pNode = xjd1ExprEval(p);
   }
-  r = realFromJson(pNode);
+  xjd1JsonToReal(pNode, &r);
   if( p->eType!=TK_JVALUE ){
     xjd1JsonFree(pNode);
   }
   return r;
+}
+
+/*
+** Return true if the JSON object is a string
+*/
+static int isStr(const JsonNode *p){
+  if( p==0 ) return 0;
+  switch( p->eJType ){
+    case XJD1_TRUE:
+    case XJD1_FALSE:
+    case XJD1_NULL:
+    case XJD1_REAL:
+      return 0;
+  }
+  return 1;
 }
 
 /*
@@ -225,6 +216,9 @@ static JsonNode *nullJson(void){
 JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
   double rLeft, rRight;
+  int c;
+  JsonNode *pJLeft, *pJRight;
+
   if( p==0 ) return nullJson();
   switch( p->eType ){
     case TK_JVALUE: {
@@ -289,11 +283,53 @@ JsonNode *xjd1ExprEval(Expr *p){
       }
       break;
     }
+    case TK_EQ:
+    case TK_NE:
+    case TK_LT:
+    case TK_LE:
+    case TK_GT:
+    case TK_GE: {
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+      c = xjd1JsonCompare(pJLeft, pJRight);
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
+      switch( p->eType ){
+        case TK_EQ:  c = c==0;   break;
+        case TK_NE:  c = c!=0;   break;
+        case TK_LT:  c = c<0;    break;
+        case TK_LE:  c = c<=0;   break;
+        case TK_GT:  c = c>0;    break;
+        case TK_GE:  c = c>=0;   break;
+      }
+      pRes->eJType = c ? XJD1_TRUE : XJD1_FALSE;
+      break;
+    }      
     case TK_PLUS: {
-      rLeft = realFromExpr(p->u.bi.pLeft);
-      rRight = realFromExpr(p->u.bi.pRight);
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+      if( isStr(pJLeft) || isStr(pJRight) ){
+        String x;
+        xjd1StringInit(&x, 0, 0);
+        xjd1JsonToString(pJLeft, &x);
+        xjd1JsonToString(pJRight, &x);
+        pRes->eJType = XJD1_STRING;
+        pRes->u.z = xjd1StringGet(&x);
+      }else{
+        xjd1JsonToReal(pJLeft, &rLeft);
+        xjd1JsonToReal(pJRight, &rRight);
+        pRes->u.r = rLeft+rRight;
+        pRes->eJType = XJD1_REAL;
+      }
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
+      break;
+    }
+    case TK_MINUS: {
+      xjd1JsonToReal(pJLeft, &rLeft);
+      xjd1JsonToReal(pJRight, &rRight);
+      pRes->u.r = rLeft-rRight;
       pRes->eJType = XJD1_REAL;
-      pRes->u.r = rLeft+rRight;  break;
       break;
     }
     default: {

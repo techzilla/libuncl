@@ -63,6 +63,17 @@ void xjd1StringTruncate(String *pStr){
 }
 
 /*
+** Return the value of a string.
+*/
+char *xjd1StringGet(String *pStr){
+  char *z;
+  if( pStr==0 ) return 0;
+  z = pStr->zBuf;
+  memset(pStr, 0, sizeof(*pStr));
+  return z;
+}
+
+/*
 ** Append text in z to a string.  If n>=0 then append exactly
 ** n bytes.  If n<0 then append all of z[] up to the zero terminator.
 **

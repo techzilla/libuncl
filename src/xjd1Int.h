@@ -332,7 +332,10 @@ int xjd1ExprListClose(ExprList*);
 /******************************** json.c *************************************/
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
 JsonNode *xjd1JsonRef(JsonNode*);
-void xjd1JsonRender(String*, JsonNode*);
+void xjd1JsonRender(String*, const JsonNode*);
+int xjd1JsonToReal(const JsonNode*, double*);
+int xjd1JsonToString(const JsonNode*, String*);
+int xjd1JsonCompare(const JsonNode*, const JsonNode*);
 JsonNode *xjd1JsonNew(Pool*);
 JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
@@ -364,6 +367,7 @@ JsonNode *xjd1StmtDoc(xjd1_stmt*, const char*);
 int xjd1Strlen30(const char *);
 void xjd1StringInit(String*, Pool*, int);
 String *xjd1StringNew(Pool*, int);
+char *xjd1StringGet(String*);
 int xjd1StringAppend(String*, const char*, int);
 #define xjd1StringText(S)      ((S)->zBuf)
 #define xjd1StringLen(S)       ((S)->nUsed)

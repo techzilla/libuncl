@@ -17,7 +17,7 @@
 ** This file contains code used to parse and render JSON strings.
 */
 #include "xjd1Int.h"
-
+#include <ctype.h>
 
 /*
 ** Reclaim memory used by JsonNode objects 
@@ -160,7 +160,7 @@ void renderString(String *pOut, const char *z){
 /*
 ** Append the text for a JSON string.
 */
-void xjd1JsonRender(String *pOut, JsonNode *p){
+void xjd1JsonRender(String *pOut, const JsonNode *p){
   if( p==0 ){
     xjd1StringAppend(pOut, "null", 4);
   }else{
@@ -211,6 +211,154 @@ void xjd1JsonRender(String *pOut, JsonNode *p){
       }
     }
   }
+}
+
+/*
+** Attempt to convert a JSON object into a real number.  Return 0
+** if successful and 1 if there is an error.
+*/
+int xjd1JsonToReal(const JsonNode *p, double *pRes){
+  double x = 0.0;
+  *pRes = 0.0/x;
+  if( p==0 ) return 1;
+  switch( p->eJType ){
+    case XJD1_FALSE: {
+      *pRes = 0.0;
+      return 0;
+    }
+    case XJD1_TRUE: {
+      *pRes = 1.0;
+      return 0;
+    }
+    case XJD1_REAL: {
+      *pRes = p->u.r;
+      return 0;
+    }
+    case XJD1_NULL: {
+      return 1;
+    }
+    case XJD1_STRING: {
+      char *zEnd;
+      if( isspace(p->u.z[0]) ){
+        return 1;
+      }else{
+        *pRes = strtod(p->u.z, &zEnd);
+        if( zEnd[0]!=0 ){
+          return 1;
+        }
+        return 0;
+      }
+    }
+    case XJD1_ARRAY: {
+      return 1;
+    }
+    case XJD1_STRUCT: {
+      return 1;
+    }
+  }
+}
+
+/*
+** Attempt to convert a JSON object into a string.  Return 0
+** if successful and 1 if there is an error.
+*/
+int xjd1JsonToString(const JsonNode *p, String *pOut){
+  if( p==0 ){
+    xjd1StringAppend(pOut, "null", 4);
+    return 1;
+  }
+  switch( p->eJType ){
+    case XJD1_FALSE: {
+      xjd1StringAppend(pOut, "false", 5);
+      break;
+    }
+    case XJD1_TRUE: {
+      xjd1StringAppend(pOut, "true", 4);
+      break;
+    }
+    case XJD1_REAL: {
+      xjd1StringAppendF(pOut, "%.17g", p->u.r);
+      break;
+    }
+    case XJD1_NULL: {
+      xjd1StringAppend(pOut, "null", 4);
+      break;
+    }
+    case XJD1_STRING: {
+      xjd1StringAppend(pOut, p->u.z, -1);
+      break;
+    }
+    case XJD1_ARRAY: {
+      xjd1JsonRender(pOut, p);
+      break;
+    }
+    case XJD1_STRUCT: {
+      xjd1JsonRender(pOut, p);
+      break;
+    }
+  }
+  return 0;
+}
+
+/*
+** Compare to JSON objects.  Return negative, zero, or positive if the
+** first is less than, equal to, or greater than the second.
+*/
+int xjd1JsonCompare(const JsonNode *pLeft, const JsonNode *pRight){
+  if( pLeft==0 ){
+    return pRight ? -1 : 0;
+  }
+  if( pRight==0 ){
+    return 1;
+  }
+  if( pLeft->eJType!=pRight->eJType ){
+    return pLeft->eJType - pRight->eJType;
+  }
+  switch( pLeft->eJType ){
+    case XJD1_REAL: {
+      if( pLeft->u.r<pRight->u.r ){
+        return -1;
+      }
+      if( pLeft->u.r>pRight->u.r ){
+        return 1;
+      }
+      return 0;
+    }
+    case XJD1_STRING: {
+      return strcmp(pLeft->u.z, pRight->u.z);
+    }
+    case XJD1_ARRAY: {
+      int i, mx, c;
+      mx = pLeft->u.ar.nElem;
+      if( mx>pRight->u.ar.nElem ) mx = pRight->u.ar.nElem;
+      for(i=0; i<mx; i++){
+        c = xjd1JsonCompare(pLeft->u.ar.apElem[i], pRight->u.ar.apElem[i]);
+        if( c ) return c;
+      }
+      return pLeft->u.ar.nElem - pRight->u.ar.nElem;
+    }
+    case XJD1_STRUCT: {
+      JsonStructElem *pA = pLeft->u.st.pFirst;
+      JsonStructElem *pB = pRight->u.st.pFirst;
+      int c = 0;
+      while( pA && pB ){
+        c = strcmp(pA->zLabel, pB->zLabel);
+        if( c ) return c;
+        c = xjd1JsonCompare(pA->pValue, pB->pValue);
+        if( c ) return c;
+        pA = pA->pNext;
+        pB = pB->pNext;
+      }
+      if( pA ){
+        return 1;
+      }
+      if( pB ){
+        return -1;
+      }
+      return 0;
+    }
+  }
+  return 0;
 }
 
 

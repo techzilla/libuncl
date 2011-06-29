@@ -233,8 +233,13 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       return 1;
     }
     case '=': {
-      *tokenType = TK_EQ;
-      return 1 + (z[1]=='=');
+      if( z[1]=='=' ){
+        *tokenType = TK_EQ;
+        return 2;
+      }else{
+        *tokenType = TK_ILLEGAL;
+        return 1;
+      }
     }
     case '<': {
       if( (c=z[1])=='=' ){
