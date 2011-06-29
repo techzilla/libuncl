@@ -116,9 +116,9 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       char *zSql;
       int res;
       char *zErr = 0;
-      zSql = sqlite3_mprintf("CREATE TABLE %s \"%!.*w\"(x)",
+      zSql = sqlite3_mprintf("CREATE TABLE %s \"%w\"(x)",
                  pCmd->u.crtab.ifExists ? "IF NOT EXISTS" : "",
-                 pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
+                 pCmd->u.crtab.zName);
       res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);
       if( zErr ){
         xjd1Error(pStmt->pConn, XJD1_ERROR, "%s", zErr);
@@ -132,9 +132,9 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       char *zSql;
       int res;
       char *zErr = 0;
-      zSql = sqlite3_mprintf("DROP TABLE %s \"%!.*w\"",
+      zSql = sqlite3_mprintf("DROP TABLE %s \"%w\"",
                  pCmd->u.crtab.ifExists ? "IF EXISTS" : "",
-                 pCmd->u.crtab.name.n, pCmd->u.crtab.name.z);
+                 pCmd->u.crtab.zName);
       res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);
       if( zErr ){
         xjd1Error(pStmt->pConn, XJD1_ERROR, "%s", zErr);
@@ -160,8 +160,8 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       xjd1StringInit(&json,0,0);
       xjd1JsonRender(&json, pNode);
       xjd1JsonFree(pNode);
-      zSql = sqlite3_mprintf("INSERT INTO \"%.*w\" VALUES('%q')",
-                  pCmd->u.ins.name.n, pCmd->u.ins.name.z,
+      zSql = sqlite3_mprintf("INSERT INTO \"%w\" VALUES('%q')",
+                  pCmd->u.ins.zName,
                   xjd1StringText(&json));
       xjd1StringClear(&json);
       res = sqlite3_exec(pStmt->pConn->db, zSql, 0, 0, &zErr);

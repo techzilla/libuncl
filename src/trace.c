@@ -134,22 +134,22 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       break;
     }
     case TK_CREATECOLLECTION: {
-      xjd1StringAppendF(pOut, "%*sCreate-Dataset: \"%.*s\" if-not-exists=%d\n",
-         indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
+      xjd1StringAppendF(pOut, "%*sCreate-Collection: \"%s\" if-not-exists=%d\n",
+         indent, "", pCmd->u.crtab.zName,
          pCmd->u.crtab.ifExists);
       break;
     }
     case TK_DROPCOLLECTION: {
-      xjd1StringAppendF(pOut, "%*sDrop-Dataset: \"%.*s\" if-exists=%d\n",
-         indent, "", pCmd->u.crtab.name.n, pCmd->u.crtab.name.z,
+      xjd1StringAppendF(pOut, "%*sDrop-Collection: \"%s\" if-exists=%d\n",
+         indent, "", pCmd->u.crtab.zName,
          pCmd->u.crtab.ifExists);
       break;
     }
     case TK_INSERT: {
-      xjd1StringAppendF(pOut, "%*sInsert: %.*s\n",
-         indent, "", pCmd->u.ins.name.n, pCmd->u.ins.name.z);
+      xjd1StringAppendF(pOut, "%*sInsert: %s\n",
+         indent, "", pCmd->u.ins.zName);
       if( pCmd->u.ins.pValue ){
-         xjd1StringAppendF(pOut, "%*s value: ");
+         xjd1StringAppendF(pOut, "%*s value: ", indent, "");
          xjd1TraceExpr(pOut, pCmd->u.ins.pValue);
          xjd1StringAppend(pOut, "\n", 1);
       }else{
@@ -158,8 +158,8 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       break; 
     }
     case TK_DELETE: {
-      xjd1StringAppendF(pOut, "%*sDELETE: %.*s\n",
-         indent, "", pCmd->u.del.name.n, pCmd->u.del.name.z);
+      xjd1StringAppendF(pOut, "%*sDELETE: %s\n",
+         indent, "", pCmd->u.del.zName);
       if( pCmd->u.del.pWhere ){
          xjd1StringAppendF(pOut, "%*s WHERE ", indent, "");
          xjd1TraceExpr(pOut, pCmd->u.del.pWhere);
@@ -168,8 +168,8 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       break; 
     }
     case TK_UPDATE: {
-      xjd1StringAppendF(pOut, "%*sUPDATE: %.*s\n",
-         indent, "", pCmd->u.update.name.n, pCmd->u.update.name.z);
+      xjd1StringAppendF(pOut, "%*sUPDATE: %s\n",
+         indent, "", pCmd->u.update.zName);
       xjd1TraceExprList(pOut, indent+3, pCmd->u.update.pChng);
       if( pCmd->u.update.pWhere ){
          xjd1StringAppendF(pOut, "%*s WHERE ", indent, "");
@@ -179,8 +179,8 @@ void xjd1TraceCommand(String *pOut, int indent, const Command *pCmd){
       break; 
     }
     case TK_PRAGMA: {
-      xjd1StringAppendF(pOut, "%*sPRAGMA: %.*s",
-         indent, "", pCmd->u.prag.name.n, pCmd->u.prag.name.z);
+      xjd1StringAppendF(pOut, "%*sPRAGMA: %s",
+         indent, "", pCmd->u.prag.zName);
       if( pCmd->u.prag.pValue ){
         xjd1StringAppend(pOut, "(", 1);
         xjd1TraceExpr(pOut, pCmd->u.ins.pValue);
@@ -269,10 +269,9 @@ void xjd1TraceDataSrc(String *pOut, int indent, const DataSrc *p){
   /*xjd1StringAppendF(pOut, "%*s%s\n", indent, "", xjd1TokenName(p->eDSType));*/
   switch( p->eDSType ){
     case TK_ID: {
-      xjd1StringAppendF(pOut, "%*sID.%.*s", indent, "",
-               p->u.tab.name.n, p->u.tab.name.z);
-      if( p->asId.n ){
-        xjd1StringAppendF(pOut, " AS %s", p->asId.n, p->asId.z);
+      xjd1StringAppendF(pOut, "%*sID.%s", indent, "", p->u.tab.zName);
+      if( p->zAs ){
+        xjd1StringAppendF(pOut, " AS %s", p->zAs);
       }
       xjd1StringAppend(pOut, "\n", 1);
       break;
@@ -290,8 +289,8 @@ void xjd1TraceDataSrc(String *pOut, int indent, const DataSrc *p){
     }
     case TK_FLATTENOP: {
       xjd1TraceDataSrc(pOut, indent, p->u.flatten.pNext);
-      xjd1StringAppendF(pOut, "%*s%.*s:\n", indent, "",
-            p->u.flatten.opName.n, p->u.flatten.opName.z);
+      xjd1StringAppendF(pOut, "%*s%s:\n", indent, "",
+            p->u.flatten.cOpName=='E' ? "EACH" : "FLATTEN");
       xjd1TraceExprList(pOut, indent+3, p->u.flatten.pList);
       break;
     }
@@ -315,7 +314,7 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
       for(i=0; i<pList->nEItem; i++){
         ExprItem *pItem = &pList->apEItem[i];
         if( i>0 ) xjd1StringAppend(pOut, ",", 1);
-        xjd1StringAppendF(pOut, "%.*s:", pItem->tkAs.n, pItem->tkAs.z);
+        xjd1StringAppendF(pOut, "%s:", pItem->zAs);
         xjd1TraceExpr(pOut, pItem->pExpr);
       }
       xjd1StringAppend(pOut, "}", 1);
@@ -385,9 +384,8 @@ void xjd1TraceExprList(String *pOut, int indent, const ExprList *p){
   for(i=0; i<p->nEItem; i++){
     xjd1StringAppendF(pOut, "%*s%d: ", indent, "", i);
     xjd1TraceExpr(pOut, p->apEItem[i].pExpr);
-    if( p->apEItem[i].tkAs.n ){
-      xjd1StringAppendF(pOut, " AS %.*s\n",
-             p->apEItem[i].tkAs.n, p->apEItem[i].tkAs.z);
+    if( p->apEItem[i].zAs ){
+      xjd1StringAppendF(pOut, " AS %s\n", p->apEItem[i].zAs);
     }else{
       xjd1StringAppend(pOut, "\n", 1);
     }

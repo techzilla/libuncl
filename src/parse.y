@@ -78,12 +78,17 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     return pNew;
   }
 
+  /* Convert a token into a zero-terminated string */
+  static char *tokenStr(Parse *p, Token *pTok){
+    return pTok ? xjd1PoolDup(p->pPool, pTok->z, pTok->n) : 0;
+  }
+
   /* A JSON literal for a string */
   static JsonNode *jsonString(Parse *p, Token *pTok){
     JsonNode *pNew = xjd1JsonNew(p->pPool);
     if( pNew ){
       pNew->eJType = XJD1_STRING;
-      pNew->u.z = xjd1PoolDup(p->pPool, pTok->z, pTok->n);
+      pNew->u.z = tokenStr(p, pTok);
       xjd1DequoteString(pNew->u.z, pTok->n);
     }
     return pNew;
@@ -127,7 +132,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     if( pNew ){
       pNew->eType = TK_ID;
       pNew->eClass = XJD1_EXPR_TK;
-      pNew->u.tk.t = *pTok;
+      pNew->u.tk.zId = tokenStr(p, pTok);
     }
     return pNew;
   }
@@ -144,6 +149,17 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     }
     return pNew;
   }
+  /* Generate an Expr object for an lvalue */
+  static Expr *lvalueExpr(Parse *p, Expr *pLeft, Token *pId){
+    Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eType = TK_DOT; 
+      pNew->eClass = XJD1_EXPR_LVALUE;
+      pNew->u.lvalue.pLeft = pLeft;
+      pNew->u.lvalue.zId = tokenStr(p, pId);
+    }
+    return pNew;
+  }
 
   /* Generate an Expr object that is a function call. */
   static Expr *funcExpr(Parse *p, Token *pFName, ExprList *pArgs){
@@ -151,7 +167,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     if( pNew ){
       pNew->eType = TK_FUNCTION; 
       pNew->eClass = XJD1_EXPR_FUNC;
-      pNew->u.func.name = *pFName;
+      pNew->u.func.zFName = tokenStr(p, pFName);
       pNew->u.func.args = pArgs;
     }
     return pNew;
@@ -221,11 +237,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
       pList->apEItem = pNew;
     }
     pItem = &pList->apEItem[pList->nEItem++];
-    if( pT ){
-      pItem->tkAs = *pT;
-    }else{
-      memset(&pItem->tkAs, 0, sizeof(pItem->tkAs));
-    }
+    pItem->zAs = tokenStr(p, pT);
     pItem->pExpr = pExpr;
     return pList;
   }
@@ -233,7 +245,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
 
 %type lvalue {Expr*}
 lvalue(A) ::= ID(X).                   {A = idExpr(p,&X);}
-lvalue(A) ::= lvalue(X) DOT ID(Y).     {A = biExpr(p,X,TK_DOT,idExpr(p,&Y));}
+lvalue(A) ::= lvalue(X) DOT ID(Y).     {A = lvalueExpr(p,X,&Y);}
 lvalue(A) ::= lvalue(X) LB expr(Y) RB. {A = biExpr(p,X,TK_LB,Y);}
 
 %type expr {Expr*}
@@ -391,8 +403,8 @@ expr_opt(A) ::= expr(X).                {A = X;}
     DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eDSType = TK_ID;
-      pNew->u.tab.name = *pTab;
-      if( pAs ) pNew->asId = *pAs;
+      pNew->u.tab.zName = tokenStr(p, pTab);
+      pNew->zAs = tokenStr(p, pAs);
     }
     return pNew;
   }
@@ -414,7 +426,7 @@ expr_opt(A) ::= expr(X).                {A = X;}
     if( pNew ){
       pNew->eDSType = TK_SELECT;
       pNew->u.subq.q = pSubq;
-      pNew->asId = *pAs;
+      pNew->zAs = tokenStr(p, pAs);
     }
     return pNew;
   }
@@ -430,7 +442,7 @@ expr_opt(A) ::= expr(X).                {A = X;}
     if( pNew ){
       pNew->eDSType = TK_FLATTENOP;
       pNew->u.flatten.pNext = pLeft;
-      pNew->u.flatten.opName = *pOp;
+      pNew->u.flatten.cOpName = pOp->z[0];
       pNew->u.flatten.pList = pArgs;
     }
     return pNew;
@@ -492,7 +504,7 @@ cmd(A) ::= CREATE COLLECTION ifnotexists(B) tabname(N). {
   if( pNew ){
     pNew->eCmdType = TK_CREATECOLLECTION;
     pNew->u.crtab.ifExists = B;
-    pNew->u.crtab.name = N;
+    pNew->u.crtab.zName = tokenStr(p, &N);
   }
   A = pNew;
 }
@@ -508,7 +520,7 @@ cmd(A) ::= DROP COLLECTION ifexists(B) tabname(N). {
   if( pNew ){
     pNew->eCmdType = TK_DROPCOLLECTION;
     pNew->u.crtab.ifExists = B;
-    pNew->u.crtab.name = N;
+    pNew->u.crtab.zName = tokenStr(p, &N);
   }
   A = pNew;
 }
@@ -523,7 +535,7 @@ cmd(A) ::= DELETE FROM tabname(N) where_opt(W). {
   Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_DELETE;
-    pNew->u.del.name = N;
+    pNew->u.del.zName = tokenStr(p, &N);
     pNew->u.del.pWhere = W;
   }
   A = pNew;
@@ -535,7 +547,7 @@ cmd(A) ::= UPDATE tabname(N) SET setlist(L) where_opt(W). {
   Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_UPDATE;
-    pNew->u.update.name = N;
+    pNew->u.update.zName = tokenStr(p, &N);
     pNew->u.update.pWhere = W;
     pNew->u.update.pChng = L;
   }
@@ -560,7 +572,7 @@ cmd(A) ::= INSERT INTO tabname(N) VALUE expr(V). {
   Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
-    pNew->u.ins.name = N;
+    pNew->u.ins.zName = tokenStr(p, &N);
     pNew->u.ins.pValue = V;
   }
   A = pNew;
@@ -569,7 +581,7 @@ cmd(A) ::= INSERT INTO tabname(N) select(Q). {
   Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
-    pNew->u.ins.name = N;
+    pNew->u.ins.zName = tokenStr(p, &N);
     pNew->u.ins.pQuery = Q;
   }
   A = pNew;
@@ -582,10 +594,8 @@ cmd(A) ::= INSERT INTO tabname(N) select(Q). {
     Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eCmdType = TK_PRAGMA;
-      pNew->u.prag.name = *pName;
-      if( pValue ){
-        pNew->u.prag.pValue = pValue;
-      }
+      pNew->u.prag.zName = tokenStr(p, pName);
+      pNew->u.prag.pValue = pValue;
     }
     return pNew;
   }

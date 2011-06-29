@@ -34,8 +34,7 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       break;
     }
     case TK_ID: {
-      char *zSql = sqlite3_mprintf("SELECT x FROM \"%.*w\"",
-                            p->u.tab.name.n, p->u.tab.name.z);
+      char *zSql = sqlite3_mprintf("SELECT x FROM \"%w\"", p->u.tab.zName);
       sqlite3_prepare_v2(pQuery->pStmt->pConn->db, zSql, -1, 
                          &p->u.tab.pStmt, 0);
       sqlite3_free(zSql);

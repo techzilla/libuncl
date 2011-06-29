@@ -123,7 +123,7 @@ struct Token {
 
 /* A single element of an expression list */
 struct ExprItem {
-  Token tkAs;               /* AS value, or DESCENDING, or ASCENDING */
+  char *zAs;                /* AS value, or DESCENDING, or ASCENDING */
   Expr *pExpr;              /* The expression */
 };
 
@@ -144,11 +144,15 @@ struct Expr {
       Expr *pLeft;             /* Left operand.  Only operand for unary ops */
       Expr *pRight;            /* Right operand.  NULL for unary ops */
     } bi;
+    struct {                /* Substructure nam.  eClass==EXPR_LVALUE */
+      Expr *pLeft;             /* Lvalue or id to the left */
+      char *zId;               /* ID to the right */
+    } lvalue;
     struct {                /* Identifiers */
-      Token t;                 /* token value.  eClass=EXPR_TK */
+      char *zId;               /* token value.  eClass=EXPR_TK */
     } tk;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
-      Token name;              /* Name of the function */
+      char *zFName;            /* Name of the function */
       ExprList *args;          /* List of argumnts */
     } func;
     struct {                /* Subqueries.  eClass=EXPR_Q */
@@ -168,6 +172,7 @@ struct Expr {
 #define XJD1_EXPR_JSON    5
 #define XJD1_EXPR_ARRAY   6
 #define XJD1_EXPR_STRUCT  7
+#define XJD1_EXPR_LVALUE  8
 
 /* A single element of a JSON structure */
 struct JsonStructElem {
@@ -242,7 +247,7 @@ struct Query {
 /* A Data Source is a representation of a term out of the FROM clause. */
 struct DataSrc {
   int eDSType;              /* Source type */
-  Token asId;               /* The identifier after the AS keyword */
+  char *zAs;                /* The identifier after the AS keyword */
   Query *pQuery;            /* Query this data source services */
   JsonNode *pValue;         /* Current value for this data source */
   int isOwner;              /* True if this DataSrc owns the pOut line */
@@ -251,14 +256,14 @@ struct DataSrc {
       DataSrc *pLeft;          /* Data source on the left */
       DataSrc *pRight;         /* Data source on the right */
     } join;
-    struct {                /* For a named table.  eDSType==TK_ID */
-      Token name;              /* The table name */
+    struct {                /* For a named collection.  eDSType==TK_ID */
+      char *zName;             /* The collection name */
       sqlite3_stmt *pStmt;     /* Cursor for reading content */
       int eofSeen;             /* True if at EOF */
     } tab;
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
-      Token opName;            /* "EACH" or "FLATTEN" */
+      char cOpName;            /* E or F for "EACH" or "FLATTEN" */
       ExprList *pList;         /* List of arguments */
     } flatten;
     struct {                /* A subquery.  eDSType==TK_SELECT */
@@ -272,31 +277,31 @@ struct Command {
   int eCmdType;             /* Type of command */
   union {
     struct {                /* Transaction control operations */
-      Token id;                /* Transaction name */
+      char *zTransId;          /* Transaction name */
     } trans;
     struct {                /* Create or drop table */
       int ifExists;            /* IF [NOT] EXISTS clause */
-      Token name;              /* Name of table */
+      char *zName;             /* Name of table */
     } crtab;
     struct {                /* Query statement */
       Query *pQuery;           /* The query */
     } q;
     struct {                /* Insert */
-      Token name;              /* Table to insert into */
+      char *zName;             /* Table to insert into */
       Expr *pValue;            /* Value to be inserted */
       Query *pQuery;           /* Query to insert from */
     } ins;
     struct {                /* Delete */
-      Token name;              /* Table to delete */
+      char *zName;             /* Table to delete */
       Expr *pWhere;            /* WHERE clause */
     } del;
     struct {                /* Update */
-      Token name;              /* Table to modify */
+      char *zName;             /* Table to modify */
       Expr *pWhere;            /* WHERE clause */
       ExprList *pChng;         /* Alternating lvalve and new value */
     } update;
     struct {                /* Pragma */
-      Token name;              /* Pragma name */
+      char *zName;             /* Pragma name */
       Expr *pValue;            /* Argument or empty string */
     } prag;
   } u;

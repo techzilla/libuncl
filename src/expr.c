@@ -88,6 +88,10 @@ static int walkExpr(Expr *p, WalkAction *pAction){
       walkExprList(p->u.st, pAction);
       break;
     }
+    case XJD1_EXPR_LVALUE: {
+      walkExpr(p->u.lvalue.pLeft, pAction);
+      break;
+    }
   }
   return rc;
 }
@@ -205,6 +209,15 @@ static double realFromExpr(Expr *p){
 }
 
 /*
+** Allocate a NULL JSON object.
+*/
+static JsonNode *nullJson(void){
+  JsonNode *pRes = xjd1JsonNew(0);
+  if( pRes ) pRes->eJType = XJD1_NULL;
+  return pRes;
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
@@ -212,13 +225,33 @@ static double realFromExpr(Expr *p){
 JsonNode *xjd1ExprEval(Expr *p){
   JsonNode *pRes;
   double rLeft, rRight;
-  if( p==0 ){
-    pRes = xjd1JsonNew(0);
-    if( pRes ) pRes->eJType = XJD1_NULL;
-    return pRes;
-  }
-  if( p->eType==TK_JVALUE ){
-    return xjd1JsonRef(p->u.json.p);
+  if( p==0 ) return nullJson();
+  switch( p->eType ){
+    case TK_JVALUE: {
+      return xjd1JsonRef(p->u.json.p);
+    }
+    case TK_DOT: {
+      JsonNode *pBase = xjd1ExprEval(p->u.lvalue.pLeft);
+      JsonStructElem *pElem;
+      pRes = 0;
+      if( pBase && pBase->eJType==XJD1_STRUCT ){
+        for(pElem=pBase->u.st.pFirst; pElem; pElem=pElem->pNext){
+          if( strcmp(pElem->zLabel, p->u.lvalue.zId)==0 ){
+            pRes = xjd1JsonRef(pElem->pValue);
+            break;
+          }
+        }
+      }
+      xjd1JsonFree(pBase);
+      if( pRes==0 ) pRes = nullJson();
+      return pRes;
+    }
+    case TK_LB: {
+      return nullJson();   /* TBD */
+    }
+    case TK_ID: {
+      return 0;
+    }
   }
   pRes = xjd1JsonNew(0);
   if( pRes==0 ) return 0;
@@ -237,7 +270,7 @@ JsonNode *xjd1ExprEval(Expr *p){
         *ppPrev = pRes->u.st.pLast = pElem;
         ppPrev = &pElem->pNext;
         memset(pElem, 0, sizeof(*pElem));
-        pElem->zLabel = xjd1PoolDup(0, pItem->tkAs.z, pItem->tkAs.n);
+        pElem->zLabel = xjd1PoolDup(0, pItem->zAs, -1);
         pElem->pValue = xjd1ExprEval(pItem->pExpr);
       }
       break;
