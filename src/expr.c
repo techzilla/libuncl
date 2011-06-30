@@ -166,25 +166,6 @@ int xjd1ExprListClose(ExprList *p){
 }
 
 /*
-** Compute a real value from an expression
-*/
-static double realFromExpr(Expr *p){
-  double r = 0.0;
-  JsonNode *pNode;
-  if( p==0 ) return 0.0;
-  if( p->eType==TK_JVALUE ){
-    pNode = p->u.json.p;
-  }else{
-    pNode = xjd1ExprEval(p);
-  }
-  xjd1JsonToReal(pNode, &r);
-  if( p->eType!=TK_JVALUE ){
-    xjd1JsonFree(pNode);
-  }
-  return r;
-}
-
-/*
 ** Return true if the JSON object is a string
 */
 static int isStr(const JsonNode *p){

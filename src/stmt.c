@@ -50,6 +50,15 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
         xjd1QueryInit(pCmd->u.ins.pQuery, p, 0);
         break;
       }
+      case TK_DELETE: {
+        xjd1ExprInit(pCmd->u.del.pWhere, p, 0);
+        break;
+      }
+      case TK_UPDATE: {
+        xjd1ExprInit(pCmd->u.update.pWhere, p, 0);
+        xjd1ExprListInit(pCmd->u.update.pChng, p, 0);
+        break;
+      }
     }
   }
   return rc;
@@ -80,6 +89,15 @@ int xjd1_stmt_delete(xjd1_stmt *pStmt){
       }
       case TK_INSERT: {
         xjd1QueryClose(pCmd->u.ins.pQuery);
+        break;
+      }
+      case TK_DELETE: {
+        xjd1ExprClose(pCmd->u.del.pWhere);
+        break;
+      }
+      case TK_UPDATE: {
+        xjd1ExprClose(pCmd->u.update.pWhere);
+        xjd1ExprListClose(pCmd->u.update.pChng);
         break;
       }
     }
@@ -187,6 +205,14 @@ int xjd1_stmt_step(xjd1_stmt *pStmt){
       }
       break;
     }
+    case TK_DELETE: {
+      rc = xjd1DeleteStep(pStmt);
+      break;
+    }
+    case TK_UPDATE: {
+      rc = xjd1UpdateStep(pStmt);
+      break;
+    }
     case TK_PRAGMA: {
       rc = xjd1PragmaStep(pStmt);
       break;
@@ -256,6 +282,10 @@ JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
   switch( pCmd->eCmdType ){
     case TK_SELECT: {
       pRes = xjd1QueryDoc(pCmd->u.q.pQuery, zDocName);
+      break;
+    }
+    case TK_DELETE: {
+      pRes = xjd1JsonRef(pStmt->pDoc);
       break;
     }
   }

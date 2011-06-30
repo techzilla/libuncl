@@ -234,9 +234,6 @@ int xjd1JsonToReal(const JsonNode *p, double *pRes){
       *pRes = p->u.r;
       return 0;
     }
-    case XJD1_NULL: {
-      return 1;
-    }
     case XJD1_STRING: {
       char *zEnd;
       if( isspace(p->u.z[0]) ){
@@ -249,13 +246,8 @@ int xjd1JsonToReal(const JsonNode *p, double *pRes){
         return 0;
       }
     }
-    case XJD1_ARRAY: {
-      return 1;
-    }
-    case XJD1_STRUCT: {
-      return 1;
-    }
   }
+  return 1;
 }
 
 /*

@@ -110,6 +110,7 @@ struct xjd1_stmt {
   u8 isDying;                       /* True if has been closed */
   char *zCode;                      /* Text of the query */
   Command *pCmd;                    /* Parsed command */
+  JsonNode *pDoc;                   /* Current document */
   int okValue;                      /* True if retValue is valid */
   String retValue;                  /* String rendering of return value */
   char *zErrMsg;                    /* Error message */
@@ -321,6 +322,9 @@ int xjd1DataSrcEOF(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);
 JsonNode *xjd1DataSrcDoc(DataSrc*, const char*);
 
+/******************************** delete.c ***********************************/
+int xjd1DeleteStep(xjd1_stmt*);
+
 /******************************** expr.c *************************************/
 int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
 int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*);
@@ -396,5 +400,9 @@ void xjd1TraceQuery(String*,int,const Query*);
 void xjd1TraceDataSrc(String*,int,const DataSrc*);
 void xjd1TraceExpr(String*,const Expr*);
 void xjd1TraceExprList(String*,int, const ExprList*);
+
+/******************************** update.c ***********************************/
+int xjd1UpdateStep(xjd1_stmt*);
+
 
 #endif /* _XJD1INT_H */

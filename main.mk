@@ -37,7 +37,7 @@ TCCX += -DSQLITE_THREADSAFE=0
 # Object files for the SQLite library.
 #
 LIBOBJ+= complete.o conn.o context.o
-LIBOBJ+= datasrc.o
+LIBOBJ+= datasrc.o delete.o
 LIBOBJ+= expr.o
 LIBOBJ+= json.o
 LIBOBJ+= memory.o
@@ -45,6 +45,7 @@ LIBOBJ+= parse.o pragma.o
 LIBOBJ+= query.o
 LIBOBJ+= sqlite3.o stmt.o string.o
 LIBOBJ+= tokenize.o trace.o
+LIBOBJ+= update.o
 
 # All of the source code files.
 #

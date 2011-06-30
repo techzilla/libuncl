@@ -39,3 +39,12 @@ SELECT FROM abc WHERE abc.name=="abc";
 .testcase 151
 SELECT FROM abc WHERE abc.name=="xyz";
 .result
+
+.testcase 160
+DELETE FROM abc WHERE abc.name=="xyz";
+SELECT FROM abc;
+.result {"name":"abc"}
+.testcase 161
+DELETE FROM abc WHERE abc.name=="abc";
+SELECT FROM abc;
+.result
