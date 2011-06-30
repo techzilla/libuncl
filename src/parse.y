@@ -115,7 +115,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
 %left OR.
 %left AND.
 %right NOT.
-%left IS LIKEOP BETWEEN IN NE EQ.
+%left IS LIKEOP BETWEEN IN NE EQEQ.
 %left GT LE LT GE.
 %right ESCAPE.
 %left BITAND BITOR LSHIFT RSHIFT.
@@ -270,7 +270,7 @@ expr(A) ::= ID(X) LP exprlist(Y) RP.  {A = funcExpr(p,&X,Y);}
 expr(A) ::= expr(X) AND(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) OR(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) LT|GT|GE|LE(OP) expr(Y).     {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) EQ|NE(OP) expr(Y).           {A = biExpr(p,X,@OP,Y);}
+expr(A) ::= expr(X) EQEQ|NE(OP) expr(Y).         {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) BITAND|BITOR|LSHIFT|RSHIFT(OP) expr(Y).
                                                  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) PLUS|MINUS(OP) expr(Y).      {A = biExpr(p,X,@OP,Y);}
@@ -543,13 +543,14 @@ cmd(A) ::= DELETE FROM tabname(N) where_opt(W). {
 
 ////////////////////////// The UPDATE command ////////////////////////////////
 //
-cmd(A) ::= UPDATE tabname(N) SET setlist(L) where_opt(W). {
+cmd(A) ::= UPDATE tabname(N) SET setlist(L) where_opt(W) upsert_opt(U). {
   Command *pNew = xjd1PoolMalloc(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_UPDATE;
     pNew->u.update.zName = tokenStr(p, &N);
     pNew->u.update.pWhere = W;
     pNew->u.update.pChng = L;
+    pNew->u.update.pUpsert = U;
   }
   A = pNew;
 }
@@ -563,6 +564,10 @@ setlist(A) ::= lvalue(Y) EQ expr(Z). {
    A = apndExpr(p,0,Y,0);
    A = apndExpr(p,A,Z,0);
 }
+
+%type upsert_opt {Expr*}
+upsert_opt(A) ::= .                       {A = 0;}
+upsert_opt(A) ::= ELSE INSERT expr(X).    {A = X;}
 
 
 

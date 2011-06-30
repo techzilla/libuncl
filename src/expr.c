@@ -264,7 +264,7 @@ JsonNode *xjd1ExprEval(Expr *p){
       }
       break;
     }
-    case TK_EQ:
+    case TK_EQEQ:
     case TK_NE:
     case TK_LT:
     case TK_LE:
@@ -276,12 +276,12 @@ JsonNode *xjd1ExprEval(Expr *p){
       xjd1JsonFree(pJLeft);
       xjd1JsonFree(pJRight);
       switch( p->eType ){
-        case TK_EQ:  c = c==0;   break;
-        case TK_NE:  c = c!=0;   break;
-        case TK_LT:  c = c<0;    break;
-        case TK_LE:  c = c<=0;   break;
-        case TK_GT:  c = c>0;    break;
-        case TK_GE:  c = c>=0;   break;
+        case TK_EQEQ: c = c==0;   break;
+        case TK_NE:   c = c!=0;   break;
+        case TK_LT:   c = c<0;    break;
+        case TK_LE:   c = c<=0;   break;
+        case TK_GT:   c = c>0;    break;
+        case TK_GE:   c = c>=0;   break;
       }
       pRes->eJType = c ? XJD1_TRUE : XJD1_FALSE;
       break;

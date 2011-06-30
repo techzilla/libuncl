@@ -74,6 +74,7 @@ static Keyword aKeywordTable[] = {
   { "DESC",         "TK_DESCENDING", },
   { "DROP",         "TK_DROP",       },
   { "EACH",         "TK_FLATTENOP",  },
+  { "ELSE",         "TK_ELSE",       },
   { "ESCAPE",       "TK_ESCAPE",     },
   { "EXCEPT",       "TK_EXCEPT",     },
   { "EXISTS",       "TK_EXISTS",     },

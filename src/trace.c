@@ -97,6 +97,7 @@ static const struct {
   { TK_DELETE,           "TK_DELETE"          },
   { TK_UPDATE,           "TK_UPDATE"          },
   { TK_SET,              "TK_SET"             },
+  { TK_ELSE,             "TK_ELSE"            },
   { TK_INSERT,           "TK_INSERT"          },
   { TK_INTO,             "TK_INTO"            },
   { TK_VALUE,            "TK_VALUE"           },

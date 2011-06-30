@@ -48,3 +48,26 @@ SELECT FROM abc;
 DELETE FROM abc WHERE abc.name=="abc";
 SELECT FROM abc;
 .result
+
+
+.testcase 170
+CREATE COLLECTION counter;
+UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz";
+SELECT FROM counter;
+.result
+.testcase 171
+UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
+  ELSE INSERT {name:"xyz", n:1};
+SELECT FROM counter;
+.result {"name":"xyz",n:1}
+.testcase 172
+UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
+  ELSE INSERT {name:"xyz", n:1};
+SELECT FROM counter;
+.result {"name":"xyz",n:2}
+.testcase 173
+INSERT INTO counter VALUE {name:"pqr", n:0};
+UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
+  ELSE INSERT {name:"xyz", n:1};
+SELECT FROM counter;
+.result {"name":"xyz",n:2} {"name":"pqr",n:0}

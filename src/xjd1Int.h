@@ -299,6 +299,7 @@ struct Command {
       char *zName;             /* Table to modify */
       Expr *pWhere;            /* WHERE clause */
       ExprList *pChng;         /* Alternating lvalve and new value */
+      Expr *pUpsert;           /* ELSE INSERT value */
     } update;
     struct {                /* Pragma */
       char *zName;             /* Pragma name */

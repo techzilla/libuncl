@@ -57,6 +57,7 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
       case TK_UPDATE: {
         xjd1ExprInit(pCmd->u.update.pWhere, p, 0);
         xjd1ExprListInit(pCmd->u.update.pChng, p, 0);
+        xjd1ExprInit(pCmd->u.update.pUpsert, p, 0);
         break;
       }
     }
@@ -98,6 +99,7 @@ int xjd1_stmt_delete(xjd1_stmt *pStmt){
       case TK_UPDATE: {
         xjd1ExprClose(pCmd->u.update.pWhere);
         xjd1ExprListClose(pCmd->u.update.pChng);
+        xjd1ExprClose(pCmd->u.update.pUpsert);
         break;
       }
     }
