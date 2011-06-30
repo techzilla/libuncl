@@ -77,4 +77,4 @@ INSERT INTO counter VALUE {name:"pqr", n:0};
 UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
   ELSE INSERT {name:"xyz", n:1};
 SELECT FROM counter;
-.result {"name":"xyz","n":2} {"name":"pqr","n":0}
+.result {"name":"xyz","n":3} {"name":"pqr","n":0}

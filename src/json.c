@@ -19,35 +19,45 @@
 #include "xjd1Int.h"
 #include <ctype.h>
 
+
+/*
+** Change a JsonNode to be a NULL.  Any substructure is deleted.
+*/
+void xjd1JsonToNull(JsonNode *p){
+  if( p==0 ) return;
+  switch( p->eJType ){
+    case XJD1_STRING: {
+      free(p->u.z);
+      break;
+    }
+    case XJD1_ARRAY: {
+      int i;
+      for(i=0; i<p->u.ar.nElem; i++){
+        xjd1JsonFree(p->u.ar.apElem[i]);
+      }
+      free(p->u.ar.apElem);
+      break;
+    }
+    case XJD1_STRUCT: {
+      JsonStructElem *pElem, *pNext;
+      for(pElem=p->u.st.pFirst; pElem; pElem=pNext){
+        pNext = pElem->pNext;
+        free(pElem->zLabel);
+        xjd1JsonFree(pElem->pValue);
+        free(pElem);
+      }
+      break;
+    }
+  }
+  p->eJType = XJD1_NULL;
+}
+
 /*
 ** Reclaim memory used by JsonNode objects 
 */
 void xjd1JsonFree(JsonNode *p){
   if( p && (--p->nRef)<=0 ){
-    switch( p->eJType ){
-      case XJD1_STRING: {
-        free(p->u.z);
-        break;
-      }
-      case XJD1_ARRAY: {
-        int i;
-        for(i=0; i<p->u.ar.nElem; i++){
-          xjd1JsonFree(p->u.ar.apElem[i]);
-        }
-        free(p->u.ar.apElem);
-        break;
-      }
-      case XJD1_STRUCT: {
-        JsonStructElem *pElem, *pNext;
-        for(pElem=p->u.st.pFirst; pElem; pElem=pNext){
-          pNext = pElem->pNext;
-          free(pElem->zLabel);
-          xjd1JsonFree(pElem->pValue);
-          free(pElem);
-        }
-        break;
-      }
-    }
+    xjd1JsonToNull(p);
     free(p);
   }
 }

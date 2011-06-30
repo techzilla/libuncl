@@ -131,7 +131,7 @@ int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
 int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkInitCallback;
+  sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
   return walkExprList(p, &sAction);

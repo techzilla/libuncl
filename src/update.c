@@ -18,16 +18,55 @@
 */
 #include "xjd1Int.h"
 
+/*
+** The expression p is an L-value.  Find the corresponding JsonNode.
+** Create it if necessary.
+*/
+static JsonNode *findOrCreateJsonNode(JsonNode **ppRoot, Expr *p){
+  if( p==0 ) return 0;
+  switch( p->eType ){
+    case TK_DOT: {
+      JsonNode *pBase = findOrCreateJsonNode(ppRoot, p->u.lvalue.pLeft);
+      JsonStructElem *pElem;
+      JsonNode *pRes = 0;
+      if( pBase && pBase->eJType==XJD1_STRUCT ){
+        for(pElem=pBase->u.st.pFirst; pElem; pElem=pElem->pNext){
+          if( strcmp(pElem->zLabel, p->u.lvalue.zId)==0 ){
+            pRes = pElem->pValue;
+            break;
+          }
+        }
+      }
+      return pRes;
+    }
+    case TK_LB: {
+      return 0;   /* TBD */
+    }
+    case TK_ID: {
+      return *ppRoot;
+    }
+  }
+  return 0;
+}
 
 /*
 ** Perform an edit on a JSON value.  Return the document after the change.
 */
-static JsonNode *reviseOneField(
-  JsonNode *pDoc,        /* The document to be edited */
+static void reviseOneField(
+  JsonNode **ppDoc,      /* The document to be edited */
   Expr *pLvalue,         /* Definition of field in document to be changed */
   Expr *pValue           /* New value for the field */
 ){
-  return pDoc;
+  JsonNode *pNode;
+  JsonNode *pX;
+
+  pNode = findOrCreateJsonNode(ppDoc, pLvalue);
+  if( pNode ){
+    pX = xjd1JsonEdit(xjd1ExprEval(pValue));
+    xjd1JsonToNull(pNode);
+    *pNode = *pX;
+    free(pX);
+  }
 }
 
 
@@ -70,12 +109,12 @@ int xjd1UpdateStep(xjd1_stmt *pStmt){
         for(i=0; i<n-1; i += 2){
           Expr *pLvalue = pChng->apEItem[i].pExpr;
           Expr *pExpr = pChng->apEItem[i+1].pExpr;
-          pNewDoc = reviseOneField(pNewDoc, pLvalue, pExpr);
+          reviseOneField(&pNewDoc, pLvalue, pExpr);
         }
         xjd1StringInit(&jsonNewDoc, 0, 0);
         xjd1JsonRender(&jsonNewDoc, pNewDoc);
-        sqlite3_bind_int64(pReplace, 1, sqlite3_column_int64(pQuery, 0));
-        sqlite3_bind_text(pReplace, 2, xjd1StringText(&jsonNewDoc), -1,
+        sqlite3_bind_int64(pReplace, 2, sqlite3_column_int64(pQuery, 0));
+        sqlite3_bind_text(pReplace, 1, xjd1StringText(&jsonNewDoc), -1,
                           SQLITE_STATIC);
         sqlite3_step(pReplace);
         sqlite3_reset(pReplace);

@@ -344,6 +344,7 @@ int xjd1JsonCompare(const JsonNode*, const JsonNode*);
 JsonNode *xjd1JsonNew(Pool*);
 JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
+void xjd1JsonToNull(JsonNode*);
 void xjd1DequoteString(char*,int);
 
 /******************************** malloc.c ***********************************/
