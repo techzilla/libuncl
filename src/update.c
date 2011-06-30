@@ -18,6 +18,39 @@
 */
 #include "xjd1Int.h"
 
+
+/*
+** pBase is a JSON structure object.  Or if it is not, it should be
+** converted into one.  Then lookup or insert the zField element.
+*/
+static JsonNode *findStructElement(JsonNode *pBase, const char *zField){
+  JsonStructElem *pElem;
+  if( pBase==0 ) return 0;
+  if( pBase->eJType!=XJD1_STRUCT ){
+    xjd1JsonToNull(pBase);
+    pBase->eJType = XJD1_STRUCT;
+    pBase->u.st.pFirst = 0;
+    pBase->u.st.pLast = 0;
+  }
+  for(pElem=pBase->u.st.pFirst; pElem; pElem=pElem->pNext){
+    if( strcmp(pElem->zLabel, zField)==0 ){
+      return pElem->pValue;
+    }
+  }
+  pElem = malloc( sizeof(*pElem) );
+  if( pElem==0 ) return 0;
+  pElem->pNext = 0;
+  if( pBase->u.st.pLast==0 ){
+    pBase->u.st.pFirst = pElem;
+  }else{
+    pBase->u.st.pLast->pNext = pElem;
+  }
+  pBase->u.st.pLast = pElem;
+  pElem->zLabel = xjd1PoolDup(0, zField, -1);
+  pElem->pValue = xjd1JsonNew(0);
+  return pElem->pValue;  
+}
+
 /*
 ** The expression p is an L-value.  Find the corresponding JsonNode.
 ** Create it if necessary.
@@ -27,17 +60,7 @@ static JsonNode *findOrCreateJsonNode(JsonNode **ppRoot, Expr *p){
   switch( p->eType ){
     case TK_DOT: {
       JsonNode *pBase = findOrCreateJsonNode(ppRoot, p->u.lvalue.pLeft);
-      JsonStructElem *pElem;
-      JsonNode *pRes = 0;
-      if( pBase && pBase->eJType==XJD1_STRUCT ){
-        for(pElem=pBase->u.st.pFirst; pElem; pElem=pElem->pNext){
-          if( strcmp(pElem->zLabel, p->u.lvalue.zId)==0 ){
-            pRes = pElem->pValue;
-            break;
-          }
-        }
-      }
-      return pRes;
+      return findStructElement(pBase, p->u.lvalue.zId);
     }
     case TK_LB: {
       return 0;   /* TBD */

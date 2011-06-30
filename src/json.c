@@ -105,6 +105,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
   pNew = xjd1JsonNew(0);
   if( pNew==0 ) return 0;
   pNew->eJType = p->eJType;
+  pNew->u = p->u;
   switch( pNew->eJType ){
     case XJD1_STRING: {
       pNew->u.z = xjd1PoolDup(0, p->u.z, -1);

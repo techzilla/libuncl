@@ -78,3 +78,12 @@ UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
   ELSE INSERT {name:"xyz", n:1};
 SELECT FROM counter;
 .result {"name":"xyz","n":3} {"name":"pqr","n":0}
+
+.testcase 180
+UPDATE counter SET counter.ctime=1234 WHERE counter.name=="xyz";
+SELECT FROM counter WHERE counter.name=="xyz";
+.result {"name":"xyz","n":3,"ctime":1234}
+.testcase 181
+UPDATE counter SET counter.ctime.x.y="This is a test" WHERE counter.name=="xyz";
+SELECT FROM counter WHERE counter.name=="xyz";
+.result {"name":"xyz","n":3,"ctime":{"x":{"y":"This is a test"}}}
