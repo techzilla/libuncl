@@ -118,6 +118,7 @@ struct Shell {
 #define SHELL_PARSER_TRACE     0x00001
 #define SHELL_CMD_TRACE        0x00002
 #define SHELL_ECHO             0x00004
+#define SHELL_TEST_MODE        0x00008
 static const struct {
   const char *zName;
   int iValue;
@@ -125,6 +126,7 @@ static const struct {
   {  "parser-trace",   SHELL_PARSER_TRACE },
   {  "cmd-trace",      SHELL_CMD_TRACE    },
   {  "echo",           SHELL_ECHO         },
+  {  "test-mode",      SHELL_TEST_MODE    },
 };
 
 /*
@@ -187,6 +189,7 @@ static int shellTestcase(Shell *p, int argc, char **argv){
     memcpy(p->zTestCase, argv[1], n);
     p->zTestCase[n] = 0;
     xjd1StringTruncate(&p->testOut);
+    p->shellFlags |= SHELL_TEST_MODE;
   }
   return 0;
 }
@@ -483,6 +486,7 @@ static void appendTestOut(Shell *p, const char *z, int n){
 static void processOneStatement(Shell *p, const char *zCmd){
   xjd1_stmt *pStmt;
   int N, rc;
+  int once = 0;
   if( p->shellFlags & SHELL_ECHO ){
     fprintf(stdout, "%s\n", zCmd);
   }
@@ -500,7 +504,11 @@ static void processOneStatement(Shell *p, const char *zCmd){
       if( rc==XJD1_ROW ){
         const char *zValue;
         xjd1_stmt_value(pStmt, &zValue);
-        if( p->zTestCase[0]==0 ){
+        if( (p->shellFlags & SHELL_TEST_MODE)==0 ){
+          if( once==0 && (p->shellFlags & SHELL_ECHO)!=0 ){
+            printf("--------- query results ---------\n");
+            once = 1;
+          }
           printf("%s\n", zValue);
         }else{
           appendTestOut(p, zValue, -1);
@@ -517,6 +525,7 @@ static void processOneStatement(Shell *p, const char *zCmd){
             p->zFile, p->nLine, xjd1_errmsg(p->pDb));
     p->nErr++;
   }
+  if( once ) printf("---------------------------------\n");
 }
 
 /*

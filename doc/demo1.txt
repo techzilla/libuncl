@@ -1,0 +1,96 @@
+-- Uncomment the following line for verbose output:
+.set echo
+
+-- This is UnQL demostration script #1.  To run this script, get the xjd1
+-- sources and compile them.  Then type:
+--
+--    ./xjd1 demo1.txt
+--
+-- where "demo1.txt" is the name of this script.  As you have no doubt
+-- already guessed, "--" starts a comment.
+--
+-- Lines that begin with "." are processed by the xjd1 shell.  I emphasize
+-- that the dot-commands are not part of UnQL.  They are specific to this
+-- particular prototype implementation.
+--
+-- All other lines of input that are not dot-commands are passed through
+-- into the UnQL interpreter and database engine.   We begin with a 
+-- dot-command to open a new database file.  The ".new" command first deletes
+-- the file named if it already exists, then opens it.  (Use .open to 
+-- open a preexisting file.)
+--
+.new test.db
+
+-- The database is initially empty.  We'll need to create a few collections
+-- to experiment with.  The idea of automatically creating collections by
+-- doing an INSERT has not yet been implemented.
+--
+CREATE COLLECTION abc;
+CREATE COLLECTION def;
+
+-- No insert some content.  The content can be any valid JSON string - 
+-- not just a JSON object, but any valid JSON.  Note that (as with 
+-- Javascript) we do not require the double-quotes around the field
+-- labels of an object on input.  However, the double-quotes will be
+-- inserted upon output.
+--
+INSERT INTO abc VALUE 1234;
+INSERT INTO abc VALUE 3.141592653;
+INSERT INTO abc VALUE "This is a string";
+INSERT INTO abc VALUE ["this","is","an","array"];
+INSERT INTO abc VALUE { type: "message",  content: "This is an object" };
+INSERT INTO abc VALUE {
+  type:"nested",
+  content: {
+    content: "nested object",
+    x:1, 
+    y: {str:"hi", str2:"there"},
+    z:true
+  }
+};
+
+-- Now query the whole table.
+--
+SELECT FROM abc;
+
+
+-- By default, the entire document is returned.  But you can construct
+-- an alternative document in between the SELECT and FROM keywords.
+--
+SELECT { x:abc.type, y:abc.content.x, z:abc.content.x+50 } FROM abc;
+
+-- You can of course put a WHERE clause to restrict the search.
+--
+SELECT FROM abc WHERE abc.type=="message";
+
+-- You can delete a single entry:
+--
+DELETE FROM abc WHERE abc==1234;
+SELECT FROM abc;
+
+-- Or delete everything all at once:
+--
+DELETE FROM abc;
+SELECT FROM abc;
+
+-- The WHERE clause processing is still just a skeleton.  Real soon now,
+-- you'll be able to use AND and OR with complex expressions in the WHERE
+-- clause in order to delete varying amounts of content.
+--
+-- Here's an example of an UPSERT:  Incrementing a counter on a webpage.
+--
+UPDATE abc SET abc.n=abc.n+1 WHERE abc.page=="/page/one"
+  ELSE INSERT {page:"/page/one", n: 1, create_time: 1234567};
+SELECT FROM abc;
+UPDATE abc SET abc.n=abc.n+1 WHERE abc.page=="/page/one"
+  ELSE INSERT {page:"/page/one", n: 1, create_time: 1234567};
+SELECT FROM abc;
+UPDATE abc SET abc.n=abc.n+1 WHERE abc.page=="/page/one"
+  ELSE INSERT {page:"/page/one", n: 1, create_time: 1234567};
+SELECT FROM abc;
+
+-- The final demonstration for today is the ability to add new fields
+-- to an object using UPDATE:
+--
+UPDATE abc SET abc.x = 54321, abc.y = {this:"is", a:"test"};
+SELECT FROM abc;
