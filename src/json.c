@@ -109,7 +109,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
         int i;
         pNew->u.ar.nElem = p->u.ar.nElem;
         for(i=0; i<p->u.ar.nElem; i++){
-          ap[i] = xjd1JsonEdit(p->u.ar.apElem[i]);
+          ap[i] = xjd1JsonRef(p->u.ar.apElem[i]);
         }
       }
       break;
@@ -124,11 +124,12 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
         *ppPrev = pDest;
         ppPrev = &pDest->pNext;
         pDest->zLabel = xjd1PoolDup(0, pSrc->zLabel, -1);
-        pDest->pValue = xjd1JsonEdit(pSrc->pValue);
+        pDest->pValue = xjd1JsonRef(pSrc->pValue);
       }
       break;
     }
   }
+  p->nRef--;
   return pNew;
 }
 
@@ -503,7 +504,7 @@ static void tokenNext(JsonStr *p){
         }
       }
       if( z[i+n]=='0' ){
-        i++;
+        n++;
       }else{
         while( i+n<mx && xjd1Isdigit(z[i+n]) ) n++;
       }
@@ -680,7 +681,7 @@ static JsonNode *parseJson(JsonStr *pIn){
   return pNew;
 
 json_error:
-  free(pNew);
+  xjd1JsonFree(pNew);
   return 0;
 }
 

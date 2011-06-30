@@ -48,6 +48,13 @@ SELECT FROM abc;
 DELETE FROM abc WHERE abc.name=="abc";
 SELECT FROM abc;
 .result
+.testcase 162
+INSERT INTO abc VALUE {a:1, b:2, c:3};
+INSERT INTO abc VALUE {a:4, b:5, c:6};
+INSERT INTO abc VALUE {a:7, x:99, z:100};
+DELETE FROM abc WHERE abc.b==5;
+SELECT FROM abc;
+.result {"a":1,"b":2,"c":3} {"a":7,"x":99,"z":100}
 
 
 .testcase 170
@@ -59,15 +66,15 @@ SELECT FROM counter;
 UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
   ELSE INSERT {name:"xyz", n:1};
 SELECT FROM counter;
-.result {"name":"xyz",n:1}
+.result {"name":"xyz","n":1}
 .testcase 172
 UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
   ELSE INSERT {name:"xyz", n:1};
 SELECT FROM counter;
-.result {"name":"xyz",n:2}
+.result {"name":"xyz","n":2}
 .testcase 173
 INSERT INTO counter VALUE {name:"pqr", n:0};
 UPDATE counter SET counter.n=counter.n+1 WHERE counter.name=="xyz"
   ELSE INSERT {name:"xyz", n:1};
 SELECT FROM counter;
-.result {"name":"xyz",n:2} {"name":"pqr",n:0}
+.result {"name":"xyz","n":2} {"name":"pqr","n":0}

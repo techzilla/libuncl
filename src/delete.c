@@ -44,13 +44,13 @@ int xjd1DeleteStep(xjd1_stmt *pStmt){
                0, 0, 0);
   zSql = sqlite3_mprintf("SELECT rowid, x FROM \"%w\"", pCmd->u.del.zName);
   sqlite3_prepare_v2(db, zSql, -1, &pQuery, 0);
-  sqlite3_prepare_v2(db, "INSERT INTO _t1(x) VALUES(?)", -1, &pIns, 0);
+  sqlite3_prepare_v2(db, "INSERT INTO _t1(x) VALUES(?1)", -1, &pIns, 0);
   if( pQuery ){
     while( SQLITE_ROW==sqlite3_step(pQuery) ){
       const char *zJson = (const char*)sqlite3_column_text(pQuery, 1);
       pStmt->pDoc = xjd1JsonParse(zJson, -1);
       if( xjd1ExprTrue(pCmd->u.del.pWhere) ){
-        sqlite3_bind_int64(pIns, 0, sqlite3_column_int64(pQuery, 0));
+        sqlite3_bind_int64(pIns, 1, sqlite3_column_int64(pQuery, 0));
         sqlite3_step(pIns);
         sqlite3_reset(pIns);
       }

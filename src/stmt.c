@@ -286,6 +286,7 @@ JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
       pRes = xjd1QueryDoc(pCmd->u.q.pQuery, zDocName);
       break;
     }
+    case TK_UPDATE:
     case TK_DELETE: {
       pRes = xjd1JsonRef(pStmt->pDoc);
       break;

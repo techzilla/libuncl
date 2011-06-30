@@ -150,7 +150,7 @@ static int shellIsSpace(char c){
 /*
 ** Set flags
 */
-static void shellSet(Shell *p, int argc, char **argv){
+static int shellSet(Shell *p, int argc, char **argv){
   int i;
   if( argc>=2 ){
     p->shellFlags |= flagMask(argv[1]);
@@ -161,24 +161,26 @@ static void shellSet(Shell *p, int argc, char **argv){
         (p->shellFlags & FlagNames[i].iValue)!=0 ? "on" : "off");
     }
   }
+  return 0;
 }
-static void shellClear(Shell *p, int argc, char **argv){
+static int shellClear(Shell *p, int argc, char **argv){
   if( argc>=2 ){
     p->shellFlags &= ~flagMask(argv[1]);
   }
+  return 0;
 }
 
 /*
 ** Command:  .quit
 */
-static void shellQuit(Shell *p, int argc, char **argv){
-  exit(0);
+static int shellQuit(Shell *p, int argc, char **argv){
+  return 1;
 }
 
 /*
 ** Command:  .testcase NAME
 */
-static void shellTestcase(Shell *p, int argc, char **argv){
+static int shellTestcase(Shell *p, int argc, char **argv){
   if( argc>=2 ){
     int n = strlen(argv[1]);
     if( n>=sizeof(p->zTestCase) ) n = sizeof(p->zTestCase)-1;
@@ -186,6 +188,7 @@ static void shellTestcase(Shell *p, int argc, char **argv){
     p->zTestCase[n] = 0;
     xjd1StringTruncate(&p->testOut);
   }
+  return 0;
 }
 
 /*
@@ -281,7 +284,7 @@ static int strglob(const char *zGlob, const char *z){
 /*
 ** Verify the output from a test.
 */
-static void shellResultCheck(
+static int shellResultCheck(
   Shell *p,
   int argc,
   char **argv,
@@ -296,25 +299,29 @@ static void shellResultCheck(
     fprintf(stderr, " Test failed: %s.%s\n Expected: [%s]\n      Got: [%s]\n",
       p->zFile, p->zTestCase, argv[1], zRes);
   }
+  return 0;
 }
 
 /* Command:  .result PATTERN */
-static void shellResult(Shell *p, int argc, char **argv){
+static int shellResult(Shell *p, int argc, char **argv){
   shellResultCheck(p,argc,argv,strcmp);
+  return 0;
 }
 /* Command:  .glob PATTERN */
-static void shellGlob(Shell *p, int argc, char **argv){
+static int shellGlob(Shell *p, int argc, char **argv){
   shellResultCheck(p,argc,argv,strglob);
+  return 0;
 }
 /* Command:  .notglob PATTERN */
-static void shellNotGlob(Shell *p, int argc, char **argv){
+static int shellNotGlob(Shell *p, int argc, char **argv){
   shellResultCheck(p,argc,argv,strnotglob);
+  return 0;
 }
 
 /*
 ** Command:  .open FILENAME
 */
-static void shellOpenDB(Shell *p, int argc, char **argv){
+static int shellOpenDB(Shell *p, int argc, char **argv){
   if( argc>=2 ){
     int rc;
     if( p->pDb ) xjd1_close(p->pDb);
@@ -326,17 +333,19 @@ static void shellOpenDB(Shell *p, int argc, char **argv){
       p->pDb = 0;
     }
   }    
+  return 0;
 }
 /*
 ** Command:  .new FILENAME
 */
-static void shellNewDB(Shell *p, int argc, char **argv){
+static int shellNewDB(Shell *p, int argc, char **argv){
   if( argc>=2 ){
     if( p->pDb ) xjd1_close(p->pDb);
     p->pDb = 0;
     unlink(argv[1]);
     shellOpenDB(p, argc, argv);
   }
+  return 0;
 }
 
 /* Forward declaration */
@@ -346,7 +355,7 @@ static void processOneFile(Shell*, const char*);
 ** Command:  .read FILENAME
 ** Read and process text from a file.
 */
-static void shellRead(Shell *p, int argc, char **argv){
+static int shellRead(Shell *p, int argc, char **argv){
   if( argc>=2 ){
     int nErr = p->nErr;
     String newFile;
@@ -365,35 +374,41 @@ static void shellRead(Shell *p, int argc, char **argv){
     printf("END %s - %d new errors\n", zNew, p->nErr - nErr);
     xjd1StringClear(&newFile);
   }
+  return 0;
 }
 
 /*
 ** Command:  .breakpoint
 ** A place to seet a breakpoint
 */
-static void shellBreakpoint(Shell *p, int argc, char **argv){
+static int shellBreakpoint(Shell *p, int argc, char **argv){
   /* no-op */
+  return 0;
 }
 
 /*
 ** Command:  .puts TEXT
 */
-static void shellPuts(Shell *p, int argc, char **argv){
+static int shellPuts(Shell *p, int argc, char **argv){
   if( argc>=2 ) printf("%s\n", argv[1]);
+  return 0;
 }
 
 /*
 ** Process a command intended for this shell - not for the database.
+**
+** Return 1 to abort or 0 to continue.
 */
-static void processMetaCommand(Shell *p){
+static int processMetaCommand(Shell *p){
   char *z;
   int n;
   char *azArg[2];
   int nArg;
   int i;
+  int rc;
   static const struct shcmd {
     const char *zCmd;                   /* Name of the command */
-    void (*xCmd)(Shell*,int,char**);    /* Procedure to run the command */
+    int (*xCmd)(Shell*,int,char**);     /* Procedure to run the command */
     const char *zHelp;                  /* Help string */
   } cmds[] = {
     { "quit",       shellQuit,        ".quit"               },
@@ -437,7 +452,7 @@ static void processMetaCommand(Shell *p){
   /* Find the command */
   for(i=0; i<sizeof(cmds)/sizeof(cmds[0]); i++){
     if( strcmp(azArg[0], cmds[i].zCmd)==0 ){
-      cmds[i].xCmd(p, nArg, azArg);
+      rc = cmds[i].xCmd(p, nArg, azArg);
       break;
     }
   }
@@ -445,8 +460,10 @@ static void processMetaCommand(Shell *p){
     p->nErr++;
     fprintf(stderr, "%s:%d: unknown command \".%s\"\n", 
             p->zFile, p->nLine, azArg[0]);
+    return 1;
   }
   xjd1StringTruncate(&p->inBuf);
+  return rc;
 }
 
 /*
@@ -588,7 +605,7 @@ static void processOneFile(
     xjd1StringAppend(&p->inBuf, zLine, -1);
     zIn = xjd1StringText(&p->inBuf);
     if( zIn[0]=='.' ){
-      processMetaCommand(p);
+      if( processMetaCommand(p) ) break;
     }else{
       processScript(p);
     }
