@@ -2,7 +2,7 @@
 #
 #### The toplevel directory of the source tree.
 #
-TOP = ../xjd1
+TOP = .
 
 #### C Compiler and options for use in building executables that
 #    will run on the platform that is doing the build.
