@@ -55,18 +55,18 @@ static JsonNode *findStructElement(JsonNode *pBase, const char *zField){
 ** The expression p is an L-value.  Find the corresponding JsonNode.
 ** Create it if necessary.
 */
-static JsonNode *findOrCreateJsonNode(JsonNode **ppRoot, Expr *p){
+static JsonNode *findOrCreateJsonNode(JsonNode *pRoot, Expr *p){
   if( p==0 ) return 0;
   switch( p->eType ){
     case TK_DOT: {
-      JsonNode *pBase = findOrCreateJsonNode(ppRoot, p->u.lvalue.pLeft);
+      JsonNode *pBase = findOrCreateJsonNode(pRoot, p->u.lvalue.pLeft);
       return findStructElement(pBase, p->u.lvalue.zId);
     }
     case TK_LB: {
       return 0;   /* TBD */
     }
     case TK_ID: {
-      return *ppRoot;
+      return pRoot;
     }
   }
   return 0;
@@ -76,14 +76,14 @@ static JsonNode *findOrCreateJsonNode(JsonNode **ppRoot, Expr *p){
 ** Perform an edit on a JSON value.  Return the document after the change.
 */
 static void reviseOneField(
-  JsonNode **ppDoc,      /* The document to be edited */
+  JsonNode *pDoc,        /* The document to be edited */
   Expr *pLvalue,         /* Definition of field in document to be changed */
   Expr *pValue           /* New value for the field */
 ){
   JsonNode *pNode;
   JsonNode *pX;
 
-  pNode = findOrCreateJsonNode(ppDoc, pLvalue);
+  pNode = findOrCreateJsonNode(pDoc, pLvalue);
   if( pNode ){
     pX = xjd1JsonEdit(xjd1ExprEval(pValue));
     xjd1JsonToNull(pNode);
@@ -132,7 +132,7 @@ int xjd1UpdateStep(xjd1_stmt *pStmt){
         for(i=0; i<n-1; i += 2){
           Expr *pLvalue = pChng->apEItem[i].pExpr;
           Expr *pExpr = pChng->apEItem[i+1].pExpr;
-          reviseOneField(&pNewDoc, pLvalue, pExpr);
+          reviseOneField(pNewDoc, pLvalue, pExpr);
         }
         xjd1StringInit(&jsonNewDoc, 0, 0);
         xjd1JsonRender(&jsonNewDoc, pNewDoc);

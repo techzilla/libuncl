@@ -139,6 +139,7 @@ struct ExprList {
 struct Expr {
   u16 eType;                /* Expression node type */
   u16 eClass;               /* Expression class */
+  Query *pQuery;            /* Query this expression belongs to.  May be NULL */
   xjd1_stmt *pStmt;         /* Statement this expression belongs to */
   union {
     struct {                /* Binary or unary operator. eClass==XJD1_EXPR_BI */

@@ -104,6 +104,9 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
     }else{
       pOut = xjd1QueryDoc(p->u.compound.pRight, zDocName);
     }
+    if( pOut==0 && zDocName ){
+      pOut = xjd1QueryDoc(p->pOuter, zDocName);
+    }
   }
   return pOut;
 }
