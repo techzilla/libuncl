@@ -120,7 +120,7 @@ int xjd1UpdateStep(xjd1_stmt *pStmt){
     while( SQLITE_ROW==sqlite3_step(pQuery) ){
       const char *zJson = (const char*)sqlite3_column_text(pQuery, 1);
       pStmt->pDoc = xjd1JsonParse(zJson, -1);
-      if( pCmd->u.del.pWhere==0 || xjd1ExprTrue(pCmd->u.del.pWhere) ){
+      if( pCmd->u.update.pWhere==0 || xjd1ExprTrue(pCmd->u.update.pWhere) ){
         JsonNode *pNewDoc;  /* Revised document content */
         ExprList *pChng;    /* List of changes */
         String jsonNewDoc;  /* Text rendering of revised document */
