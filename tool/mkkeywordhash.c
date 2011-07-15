@@ -78,7 +78,7 @@ static Keyword aKeywordTable[] = {
   { "ESCAPE",       "TK_ESCAPE",     },
   { "EXCEPT",       "TK_EXCEPT",     },
   { "EXISTS",       "TK_EXISTS",     },
-  { "FALSE",        "TK_FALSE",      },
+  { "false",        "TK_FALSE",      },
   { "FLATTEN",      "TK_FLATTENOP",  },
   { "FROM",         "TK_FROM",       },
   { "GLOB",         "TK_LIKEOP",     },
@@ -94,6 +94,7 @@ static Keyword aKeywordTable[] = {
   { "LIMIT",        "TK_LIMIT",      },
   { "NOT",          "TK_NOT",        },
   { "NULL",         "TK_NULL",       },
+  { "null",         "TK_NULL",       },
   { "OFFSET",       "TK_OFFSET",     },
   { "ORDER",        "TK_ORDER",      },
   { "OR",           "TK_OR",         },
@@ -101,7 +102,7 @@ static Keyword aKeywordTable[] = {
   { "ROLLBACK",     "TK_ROLLBACK",   },
   { "SELECT",       "TK_SELECT",     },
   { "SET",          "TK_SET",        },
-  { "TRUE",         "TK_TRUE",       },
+  { "true",         "TK_TRUE",       },
   { "UNION",        "TK_UNION",      },
   { "UPDATE",       "TK_UPDATE",     },
   { "VALUE",        "TK_VALUE",      },
@@ -386,7 +387,7 @@ int main(int argc, char **argv){
   printf("%s  };\n", j==0 ? "" : "\n");
 
   printf("  int h, i;\n");
-  printf("  if( n<2 || z[0]<'A' || z[0]>'Z' ) return TK_ID;\n");
+  printf("  if( n<2 ) return TK_ID;\n");
   printf("  h = (z[0]*4 ^ z[n-1]*3 ^ n) %% %d;\n", bestSize);
   printf("  for(i=((int)aHash[h])-1; i>=0; i=((int)aNext[i])-1){\n");
   printf("    if( aLen[i]==n && memcmp(&zText[aOffset[i]],z,n)==0 ){\n");

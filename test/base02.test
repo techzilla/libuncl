@@ -5,7 +5,7 @@ CREATE COLLECTION c1;
 INSERT INTO c1 VALUE { x:true };
 
 .testcase 1
-SELECT 1  FROM c1 WHERE TRUE;
+SELECT 1  FROM c1 WHERE true;
 SELECT 2  FROM c1 WHERE 1.0;
 SELECT 3  FROM c1 WHERE 0.1;
 SELECT 4  FROM c1 WHERE -0.1;
@@ -18,33 +18,33 @@ SELECT 10 FROM c1 WHERE "false";
 .result 1 2 3 4 5 6 7 8 9 10
 
 .testcase 2
-SELECT 1 FROM c1 WHERE FALSE;
+SELECT 1 FROM c1 WHERE false;
 SELECT 2 FROM c1 WHERE NULL;
 SELECT 3 FROM c1 WHERE 0.0;
 SELECT 4 FROM c1 WHERE "";
 .result
 
 .testcase 3
-SELECT TRUE AND TRUE FROM c1;
-SELECT TRUE AND FALSE FROM c1;
-SELECT FALSE AND TRUE FROM c1;
-SELECT FALSE AND FALSE FROM c1;
-SELECT "cat" AND "dog" FROM c1;
-SELECT "" AND "dog" FROM c1;
+SELECT true && true FROM c1;
+SELECT true && false FROM c1;
+SELECT false && true FROM c1;
+SELECT false && false FROM c1;
+SELECT "cat" && "dog" FROM c1;
+SELECT "" && "dog" FROM c1;
 .result true false false false "dog" "" 
 
 .testcase 4
-SELECT TRUE OR TRUE FROM c1;
-SELECT TRUE OR FALSE FROM c1;
-SELECT FALSE OR TRUE FROM c1;
-SELECT FALSE OR FALSE FROM c1;
-SELECT "cat" OR "dog" FROM c1;
-SELECT "" OR "dog" FROM c1;
+SELECT true || true FROM c1;
+SELECT true || false FROM c1;
+SELECT false || true FROM c1;
+SELECT false || false FROM c1;
+SELECT "cat" || "dog" FROM c1;
+SELECT "" || "dog" FROM c1;
 .result true true true false "cat" "dog"
 
 .testcase 5
-SELECT NOT TRUE  FROM c1;
-SELECT NOT FALSE FROM c1;
+SELECT NOT true  FROM c1;
+SELECT NOT false FROM c1;
 SELECT NOT "cat" FROM c1;
 SELECT NOT "" FROM c1;
 .result false true false true
@@ -103,4 +103,3 @@ SELECT 1 - 7 FROM c1;
 SELECT 45 - 4 FROM c1;
 SELECT 67 - 2 FROM c1;
 .result -6 41 65
-
