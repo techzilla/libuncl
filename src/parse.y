@@ -115,10 +115,10 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
 %left OR.
 %left AND.
 %right BANG.
-%left IS LIKEOP BETWEEN IN NE EQEQ.
+%left IS LIKEOP BETWEEN IN NE EQEQ EQ3 NE3.
 %left GT LE LT GE.
 %right ESCAPE.
-%left BITAND BITOR LSHIFT RSHIFT.
+%left BITAND BITOR LSHIFT RSHIFT URSHIFT.
 %left PLUS MINUS.
 %left STAR SLASH REM.
 %left CONCAT.
@@ -270,8 +270,8 @@ expr(A) ::= ID(X) LP exprlist(Y) RP.  {A = funcExpr(p,&X,Y);}
 expr(A) ::= expr(X) AND(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) OR(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) LT|GT|GE|LE(OP) expr(Y).     {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) EQEQ|NE(OP) expr(Y).         {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) BITAND|BITOR|LSHIFT|RSHIFT(OP) expr(Y).
+expr(A) ::= expr(X) EQEQ|NE|EQ3|NE3(OP) expr(Y). {A = biExpr(p,X,@OP,Y);}
+expr(A) ::= expr(X) BITAND|BITOR|LSHIFT|RSHIFT|URSHIFT(OP) expr(Y).
                                                  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) PLUS|MINUS(OP) expr(Y).      {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) STAR|SLASH|REM(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}

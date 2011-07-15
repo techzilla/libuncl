@@ -233,12 +233,15 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       return 1;
     }
     case '=': {
-      if( z[1]=='=' ){
-        *tokenType = TK_EQEQ;
-        return 2;
-      }else{
+      if( z[1]!='=' ){
         *tokenType = TK_EQ;
         return 1;
+      }else if( z[2]=='=' ){
+        *tokenType = TK_EQ3;
+        return 3;
+      }else{
+        *tokenType = TK_EQEQ;
+        return 2;
       }
     }
     case '<': {
@@ -260,18 +263,24 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
       if( (c=z[1])=='=' ){
         *tokenType = TK_GE;
         return 2;
-      }else if( c=='>' ){
-        *tokenType = TK_RSHIFT;
-        return 2;
-      }else{
+      }else if( c!='>' ){
         *tokenType = TK_GT;
         return 1;
+      }else if( z[2]=='>' ){
+        *tokenType = TK_URSHIFT;
+        return 3;
+      }else{
+        *tokenType = TK_RSHIFT;
+        return 2;
       }
     }
     case '!': {
       if( z[1]!='=' ){
         *tokenType = TK_BANG;
         return 1;
+      }else if( z[2]=='=' ){
+        *tokenType = TK_NE3;
+        return 3;
       }else{
         *tokenType = TK_NE;
         return 2;
