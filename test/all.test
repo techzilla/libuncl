@@ -1,3 +1,4 @@
 -- Run all test scripts
 --
 .read base01.test
+.read base02.test

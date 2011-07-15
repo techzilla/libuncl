@@ -182,6 +182,40 @@ static int isStr(const JsonNode *p){
 }
 
 /*
+** Return non-zero if the JSON object passed should be considered TRUE in a 
+** boolean context. For example in the result of a WHERE or HAVING clause.
+**
+** XJD1 uses the same rules as Javascript does to determine which
+** values are considered TRUE:
+**
+**   1. Arrays and objects are always considered true.
+**   2. Strings are false if they are zero bytes in length, otherwise true.
+**   3. Numbers are false if equal to zero, or true otherwise.
+**   4. NULL values are false.
+**   5. "true" and "false" are "true" and "false". Respectively.
+*/
+static int isTrue(const JsonNode *p){
+  int res = 0;                    /* Return value */
+  switch( p->eJType ){
+    case XJD1_REAL: 
+      res = p->u.r!=0.0;
+      break;
+
+    case XJD1_STRING: 
+      res = p->u.z[0]!='\0';
+      break;
+
+    case XJD1_ARRAY:
+    case XJD1_STRUCT:
+    case XJD1_TRUE:
+      res = 1;
+      break;
+  }
+  assert( res==1 || res==0 );
+  return res;
+}
+
+/*
 ** Allocate a NULL JSON object.
 */
 static JsonNode *nullJson(void){
@@ -232,7 +266,27 @@ JsonNode *xjd1ExprEval(Expr *p){
         return xjd1StmtDoc(p->pStmt, p->u.id.zId);
       }
     }
+
+    /* The following two logical operators work in the same way as their
+    ** javascript counterparts. i.e.
+    **
+    **    1. "x AND y" is equivalent to "x ? y : x"
+    **    2. "x OR y" is equivalent to "x ? x : y"
+    */
+    case TK_AND:
+    case TK_OR: {
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      if( isTrue(pJLeft)==(p->eType==TK_OR) ){
+        pRes = pJLeft;
+      }else{
+        xjd1JsonFree(pJLeft);
+        pRes = xjd1ExprEval(p->u.bi.pRight);
+      }
+      return pRes;
+    }
   }
+
+
   pRes = xjd1JsonNew(0);
   if( pRes==0 ) return 0;
   pRes->eJType = XJD1_NULL;
@@ -312,12 +366,26 @@ JsonNode *xjd1ExprEval(Expr *p){
       break;
     }
     case TK_MINUS: {
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
       xjd1JsonToReal(pJLeft, &rLeft);
       xjd1JsonToReal(pJRight, &rRight);
       pRes->u.r = rLeft-rRight;
       pRes->eJType = XJD1_REAL;
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
       break;
     }
+
+    case TK_NOT: {
+      if( xjd1ExprTrue(p->u.bi.pLeft) ){
+        pRes->eJType = XJD1_FALSE;
+      }else{
+        pRes->eJType = XJD1_TRUE;
+      }
+      break;
+    }
+
     default: {
       pRes->eJType = XJD1_NULL;
       break;
@@ -326,30 +394,18 @@ JsonNode *xjd1ExprEval(Expr *p){
   return pRes;
 }
 
-
 /*
-** Return TRUE if the given expression evaluates to TRUE.
-** An empty expression is considered to be TRUE.  A NULL value
-** is not TRUE.
+** Return non-zero if the evaluation of the given expression should be
+** considered TRUE in a boolean context. For example in result of a
+** WHERE or HAVING clause.
 */
 int xjd1ExprTrue(Expr *p){
   int rc = 0;
   JsonNode *pValue = xjd1ExprEval(p);
-  if( pValue==0 ) return 0;
-  switch( pValue->eJType ){
-    case XJD1_REAL: {
-      rc = pValue->u.r!=0.0;
-      break;
-    }
-    case XJD1_TRUE: {
-      rc = 1;
-      break;
-    }
-    case XJD1_STRING: {
-      rc = atof(pValue->u.z)!=0.0;
-      break;
-    }
+  if( pValue ){
+    rc = isTrue(pValue);
+    assert( rc==1 || rc==0 );
+    xjd1JsonFree(pValue);
   }
-  xjd1JsonFree(pValue);
   return rc;
 }

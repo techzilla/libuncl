@@ -229,7 +229,7 @@ struct Query {
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
-      Query *pRight;              /* Righ subquery */
+      Query *pRight;              /* Right subquery */
       int doneLeft;               /* True if left is run to completion */
     } compound;
     struct {                    /* For simple queries */
