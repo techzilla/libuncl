@@ -111,19 +111,19 @@ jvalue(A) ::= TRUE.                    {A = jsonType(p,XJD1_TRUE);}
 jvalue(A) ::= FALSE.                   {A = jsonType(p,XJD1_FALSE);}
 jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
 
-
+%right QM.
 %left OR.
 %left AND.
-%right BANG.
-%left IS LIKEOP BETWEEN IN NE EQEQ EQ3 NE3.
-%left GT LE LT GE.
-%right ESCAPE.
-%left BITAND BITOR LSHIFT RSHIFT URSHIFT.
+%left BITOR.
+%left BITXOR.
+%left BITAND.
+%left LIKEOP NE EQEQ EQ3 NE3.
+%left IN GT LE LT GE.
+%left LSHIFT RSHIFT URSHIFT.
 %left PLUS MINUS.
 %left STAR SLASH REM.
-%left CONCAT.
+%right BITNOT BANG.
 %left COLLATE.
-%right BITNOT.
 
 %include {
   /* Generate an Expr object from an identifer token */
@@ -271,23 +271,22 @@ expr(A) ::= expr(X) AND(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) OR(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) LT|GT|GE|LE(OP) expr(Y).     {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) EQEQ|NE|EQ3|NE3(OP) expr(Y). {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) BITAND|BITOR|LSHIFT|RSHIFT|URSHIFT(OP) expr(Y).
+expr(A) ::= expr(X) BITAND(OP) expr(Y).          {A = biExpr(p,X,@OP,Y);}
+expr(A) ::= expr(X) BITXOR(OP) expr(Y).          {A = biExpr(p,X,@OP,Y);}
+expr(A) ::= expr(X) BITOR(OP) expr(Y).           {A = biExpr(p,X,@OP,Y);}
+expr(A) ::= expr(X) LSHIFT|RSHIFT|URSHIFT(OP) expr(Y).
                                                  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) PLUS|MINUS(OP) expr(Y).      {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) STAR|SLASH|REM(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) CONCAT(OP) expr(Y).          {A = biExpr(p,X,@OP,Y);}
-%type likeop {int}
-likeop(A) ::= LIKEOP(OP).                        {A = @OP;}
-likeop(A) ::= BANG LIKEOP(OP).                   {A = 128+@OP;}
-expr(A) ::= expr(X) likeop(OP) expr(Y). [LIKEOP] {A = biExpr(p,X,OP,Y);}
-expr(A) ::= expr(X) IS(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
-expr(A) ::= expr(X) IS NOT expr(Y).              {A = biExpr(p,X,TK_NOT_IS,Y);}
+expr(A) ::= expr(X) LIKEOP(OP) expr(Y).          {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= BANG(OP) expr(X).                    {A = biExpr(p,X,@OP,0);}
 expr(A) ::= BITNOT(OP) expr(X).                  {A = biExpr(p,X,@OP,0);}
 expr(A) ::= MINUS(OP) expr(X). [BITNOT]          {A = biExpr(p,X,@OP,0);}
 expr(A) ::= PLUS(OP) expr(X). [BITNOT]           {A = biExpr(p,X,@OP,0);}
 expr(A) ::= LP select(X) RP.                     {A = subqExpr(p,X);}
 expr(A) ::= LP expr(X) RP.                       {A = X;}
+expr(A) ::= expr(X) COLLATE ID|STRING.           {A = X;}
+expr ::= expr QM expr COLON expr.
 
 
 %type exprlist {ExprList*}

@@ -33,32 +33,33 @@ static const struct {
   { TK_TRUE,             "TK_TRUE"            },
   { TK_FALSE,            "TK_FALSE"           },
   { TK_NULL,             "TK_NULL"            },
+  { TK_QM,               "TK_QM"              },
   { TK_OR,               "TK_OR"              },
   { TK_AND,              "TK_AND"             },
-  { TK_BANG,             "TK_BANG"            },
-  { TK_IS,               "TK_IS"              },
+  { TK_BITOR,            "TK_BITOR"           },
+  { TK_BITXOR,           "TK_BITXOR"          },
+  { TK_BITAND,           "TK_BITAND"          },
   { TK_LIKEOP,           "TK_LIKEOP"          },
-  { TK_BETWEEN,          "TK_BETWEEN"         },
-  { TK_IN,               "TK_IN"              },
   { TK_NE,               "TK_NE"              },
-  { TK_EQ,               "TK_EQ"              },
+  { TK_EQEQ,             "TK_EQEQ"            },
+  { TK_EQ3,              "TK_EQ3"             },
+  { TK_NE3,              "TK_NE3"             },
+  { TK_IN,               "TK_IN"              },
   { TK_GT,               "TK_GT"              },
   { TK_LE,               "TK_LE"              },
   { TK_LT,               "TK_LT"              },
   { TK_GE,               "TK_GE"              },
-  { TK_ESCAPE,           "TK_ESCAPE"          },
-  { TK_BITAND,           "TK_BITAND"          },
-  { TK_BITOR,            "TK_BITOR"           },
   { TK_LSHIFT,           "TK_LSHIFT"          },
   { TK_RSHIFT,           "TK_RSHIFT"          },
+  { TK_URSHIFT,          "TK_URSHIFT"         },
   { TK_PLUS,             "TK_PLUS"            },
   { TK_MINUS,            "TK_MINUS"           },
   { TK_STAR,             "TK_STAR"            },
   { TK_SLASH,            "TK_SLASH"           },
   { TK_REM,              "TK_REM"             },
-  { TK_CONCAT,           "TK_CONCAT"          },
-  { TK_COLLATE,          "TK_COLLATE"         },
   { TK_BITNOT,           "TK_BITNOT"          },
+  { TK_BANG,             "TK_BANG"            },
+  { TK_COLLATE,          "TK_COLLATE"         },
   { TK_ID,               "TK_ID"              },
   { TK_DOT,              "TK_DOT"             },
   { TK_LB,               "TK_LB"              },
@@ -92,19 +93,19 @@ static const struct {
   { TK_CREATE,           "TK_CREATE"          },
   { TK_COLLECTION,       "TK_COLLECTION"      },
   { TK_IF,               "TK_IF"              },
+  { TK_NOT,              "TK_NOT"             },
   { TK_EXISTS,           "TK_EXISTS"          },
   { TK_DROP,             "TK_DROP"            },
   { TK_DELETE,           "TK_DELETE"          },
   { TK_UPDATE,           "TK_UPDATE"          },
   { TK_SET,              "TK_SET"             },
+  { TK_EQ,               "TK_EQ"              },
   { TK_ELSE,             "TK_ELSE"            },
   { TK_INSERT,           "TK_INSERT"          },
   { TK_INTO,             "TK_INTO"            },
   { TK_VALUE,            "TK_VALUE"           },
   { TK_PRAGMA,           "TK_PRAGMA"          },
   /* End paste of parse_txt.h */
-  { TK_NOT_LIKEOP,       "TK_NOT_LIKEOP"      },
-  { TK_NOT_IS,           "TK_NOT_IS"          },
   { TK_FUNCTION,         "TK_FUNCTION"        },
   { TK_SPACE,            "TK_SPACE"           },
   { TK_ILLEGAL,          "TK_ILLEGAL"         },
@@ -352,10 +353,7 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
     case TK_STAR:
     case TK_SLASH:
     case TK_REM:
-    case TK_CONCAT:
-    case TK_IS:
-    case TK_BANG:
-    case TK_NOT_IS: {
+    case TK_BANG: {
       if( p->u.bi.pRight ){
         xjd1StringAppend(pOut, "(", 1);
         xjd1TraceExpr(pOut, p->u.bi.pLeft);

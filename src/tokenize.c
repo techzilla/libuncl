@@ -86,65 +86,64 @@ const unsigned char xjd1CtypeMap[256] = {
 ** The following code is automatically generated
 ** by ../tool/mkkeywordhash.c
 */
-/* Hash score: 55 */
+/* Hash score: 51 */
 static int keywordCode(const char *z, int n){
-  /* zText[] encodes 293 bytes of keywords in 209 bytes */
-  /*   BEGINTORDEROLLBACKELSELECTGROUPDATEACHAVINGLOBETWEENULLIKE         */
-  /*   SCAPEXISTSALLIMITASCENDINGCOLLATEXCEPTCOLLECTIONOTCREATEDELETE     */
-  /*   DESCENDINGDROPRAGMAFLATTENIFROMUNIONVALUEWHEREBYCOMMITINSERT       */
-  /*   INTERSECTOFFSETfalsenulltrue                                       */
-  static const char zText[208] = {
+  /* zText[] encodes 278 bytes of keywords in 198 bytes */
+  /*   BEGINTORDEROLLBACKELSELECTGROUPDATEACHAVINGLOBYALLIKEXISTS         */
+  /*   ASCENDINGCOLLATEXCEPTCOLLECTIONULLIMITCREATEDELETEDESCENDING       */
+  /*   DROPRAGMAFLATTENOTIFROMUNIONVALUEWHEREinullCOMMITINSERT            */
+  /*   INTERSECTOFFSETfalsetrue                                           */
+  static const char zText[197] = {
     'B','E','G','I','N','T','O','R','D','E','R','O','L','L','B','A','C','K',
     'E','L','S','E','L','E','C','T','G','R','O','U','P','D','A','T','E','A',
-    'C','H','A','V','I','N','G','L','O','B','E','T','W','E','E','N','U','L',
-    'L','I','K','E','S','C','A','P','E','X','I','S','T','S','A','L','L','I',
-    'M','I','T','A','S','C','E','N','D','I','N','G','C','O','L','L','A','T',
-    'E','X','C','E','P','T','C','O','L','L','E','C','T','I','O','N','O','T',
-    'C','R','E','A','T','E','D','E','L','E','T','E','D','E','S','C','E','N',
-    'D','I','N','G','D','R','O','P','R','A','G','M','A','F','L','A','T','T',
-    'E','N','I','F','R','O','M','U','N','I','O','N','V','A','L','U','E','W',
-    'H','E','R','E','B','Y','C','O','M','M','I','T','I','N','S','E','R','T',
-    'I','N','T','E','R','S','E','C','T','O','F','F','S','E','T','f','a','l',
-    's','e','n','u','l','l','t','r','u','e',
+    'C','H','A','V','I','N','G','L','O','B','Y','A','L','L','I','K','E','X',
+    'I','S','T','S','A','S','C','E','N','D','I','N','G','C','O','L','L','A',
+    'T','E','X','C','E','P','T','C','O','L','L','E','C','T','I','O','N','U',
+    'L','L','I','M','I','T','C','R','E','A','T','E','D','E','L','E','T','E',
+    'D','E','S','C','E','N','D','I','N','G','D','R','O','P','R','A','G','M',
+    'A','F','L','A','T','T','E','N','O','T','I','F','R','O','M','U','N','I',
+    'O','N','V','A','L','U','E','W','H','E','R','E','i','n','u','l','l','C',
+    'O','M','M','I','T','I','N','S','E','R','T','I','N','T','E','R','S','E',
+    'C','T','O','F','F','S','E','T','f','a','l','s','e','t','r','u','e',
   };
   static const unsigned char aHash[80] = {
-       0,  40,  38,  18,  32,  12,  39,   1,  47,   7,   0,  48,  25,
-       8,  24,   0,   0,   4,  46,  10,  35,  34,  41,   0,   0,   0,
-       0,  36,   0,   0,   0,  20,   0,   0,   0,  45,   0,   0,   6,
-       0,   0,   0,   0,  37,   0,   0,   0,   0,   0,   0,   0,   0,
-      23,  27,  44,  26,   9,  19,   0,   0,  31,   2,  21,  30,   0,
-      43,   0,   0,   0,  33,   0,   0,  22,  28,   0,   0,   0,  29,
-      42,  17,
+       0,  12,  36,  13,  29,   0,  37,   1,  39,   7,   0,  46,  21,
+       8,  20,   0,   0,   4,  45,  10,  33,  31,  40,   0,   0,   0,
+       0,  34,   0,   0,   0,  16,   0,   0,   0,  44,   0,   0,   6,
+       0,   0,   0,   0,  35,   0,   0,   0,   0,   0,   0,   0,   0,
+      19,  24,  43,  32,   9,  23,   0,   0,  28,   2,  17,  27,   0,
+      42,   0,   0,   0,  30,   0,   0,  22,  25,   0,   0,  38,  26,
+      41,   5,
   };
-  static const unsigned char aNext[48] = {
+  static const unsigned char aNext[46] = {
        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-       0,   0,   0,   5,   0,   0,   0,   0,  13,   0,   0,   0,   0,
-       0,   0,  15,   3,   0,   0,   0,   0,   0,  14,   0,   0,   0,
-       0,   0,  11,   0,   0,   0,   0,   0,  16,
+       0,   0,   0,   0,   0,   0,   0,   0,  18,   0,   0,   0,   0,
+       3,   0,   0,   0,   0,   0,   0,  14,   0,   0,   0,   0,   0,
+       0,  11,   0,   0,   0,   0,  15,
   };
-  static const unsigned char aLen[48] = {
-       5,   4,   5,   8,   4,   6,   5,   6,   4,   6,   4,   7,   4,
-       4,   6,   6,   2,   3,   5,   2,   3,   9,   7,   6,  10,   3,
-       6,   6,   4,  10,   2,   4,   6,   7,   2,   4,   5,   5,   5,
-       2,   6,   6,   9,   6,   3,   5,   4,   4,
+  static const unsigned char aLen[46] = {
+       5,   4,   5,   8,   4,   6,   5,   6,   4,   6,   4,   2,   3,
+       4,   6,   2,   3,   9,   7,   6,  10,   4,   5,   6,   6,   4,
+      10,   2,   4,   6,   7,   3,   2,   4,   5,   5,   5,   2,   4,
+       6,   6,   9,   6,   3,   5,   4,
   };
-  static const unsigned short int aOffset[48] = {
-       0,   3,   6,  10,  18,  20,  26,  29,  34,  37,  42,  45,  51,
-      54,  57,  62,  64,  68,  70,  75,  75,  75,  84,  90,  96, 105,
-     108, 114, 120, 120, 127, 130, 133, 139, 146, 147, 151, 156, 161,
-     166, 168, 174, 180, 189, 192, 195, 200, 204,
+  static const unsigned short int aOffset[46] = {
+       0,   3,   6,  10,  18,  20,  26,  29,  34,  37,  42,  45,  47,
+      49,  52,  58,  58,  58,  67,  73,  79,  88,  91,  96, 102, 108,
+     108, 115, 118, 121, 127, 133, 136, 137, 141, 146, 151, 156, 157,
+     161, 167, 173, 182, 185, 188, 193,
   };
-  static const unsigned char aCode[48] = {
+  static const unsigned char aCode[46] = {
     TK_BEGIN,      TK_INTO,       TK_ORDER,      TK_ROLLBACK,   TK_ELSE,       
     TK_SELECT,     TK_GROUP,      TK_UPDATE,     TK_FLATTENOP,  TK_HAVING,     
-    TK_LIKEOP,     TK_BETWEEN,    TK_NULL,       TK_LIKEOP,     TK_ESCAPE,     
-    TK_EXISTS,     TK_IS,         TK_ALL,        TK_LIMIT,      TK_AS,         
-    TK_ASCENDING,  TK_ASCENDING,  TK_COLLATE,    TK_EXCEPT,     TK_COLLECTION, 
-    TK_NOT,        TK_CREATE,     TK_DELETE,     TK_DESCENDING, TK_DESCENDING, 
-    TK_IN,         TK_DROP,       TK_PRAGMA,     TK_FLATTENOP,  TK_IF,         
-    TK_FROM,       TK_UNION,      TK_VALUE,      TK_WHERE,      TK_BY,         
-    TK_COMMIT,     TK_INSERT,     TK_INTERSECT,  TK_OFFSET,     TK_SET,        
-    TK_FALSE,      TK_NULL,       TK_TRUE,       
+    TK_LIKEOP,     TK_BY,         TK_ALL,        TK_LIKEOP,     TK_EXISTS,     
+    TK_AS,         TK_ASCENDING,  TK_ASCENDING,  TK_COLLATE,    TK_EXCEPT,     
+    TK_COLLECTION, TK_NULL,       TK_LIMIT,      TK_CREATE,     TK_DELETE,     
+    TK_DESCENDING, TK_DESCENDING, TK_IN,         TK_DROP,       TK_PRAGMA,     
+    TK_FLATTENOP,  TK_NOT,        TK_IF,         TK_FROM,       TK_UNION,      
+    TK_VALUE,      TK_WHERE,      TK_IN,         TK_NULL,       TK_COMMIT,     
+    TK_INSERT,     TK_INTERSECT,  TK_OFFSET,     TK_SET,        TK_FALSE,      
+    TK_TRUE,       
   };
   int h, i;
   if( n<2 ) return TK_ID;
@@ -156,7 +155,7 @@ static int keywordCode(const char *z, int n){
   }
   return TK_ID;
 }
-#define XJD1_N_KEYWORD 48
+#define XJD1_N_KEYWORD 46
 
 /* End of the automatically generated hash code
 *********************************************************************/
@@ -180,6 +179,10 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
         return i;
       }
       *tokenType = TK_MINUS;
+      return 1;
+    }
+    case '?': {
+      *tokenType = TK_QM;
       return 1;
     }
     case '(': {
