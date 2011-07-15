@@ -401,7 +401,7 @@ JsonNode *xjd1ExprEval(Expr *p){
       break;
     }
 
-    case TK_NOT: {
+    case TK_BANG: {
       if( xjd1ExprTrue(p->u.bi.pLeft) ){
         pRes->eJType = XJD1_FALSE;
       }else{

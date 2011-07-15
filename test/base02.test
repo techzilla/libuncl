@@ -43,10 +43,10 @@ SELECT "" || "dog" FROM c1;
 .result true true true false "cat" "dog"
 
 .testcase 5
-SELECT NOT true  FROM c1;
-SELECT NOT false FROM c1;
-SELECT NOT "cat" FROM c1;
-SELECT NOT "" FROM c1;
+SELECT ! true  FROM c1;
+SELECT ! false FROM c1;
+SELECT ! "cat" FROM c1;
+SELECT ! "" FROM c1;
 .result false true false true
 
 .testcase 6

@@ -114,7 +114,7 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
 
 %left OR.
 %left AND.
-%right NOT.
+%right BANG.
 %left IS LIKEOP BETWEEN IN NE EQEQ.
 %left GT LE LT GE.
 %right ESCAPE.
@@ -278,11 +278,11 @@ expr(A) ::= expr(X) STAR|SLASH|REM(OP) expr(Y).  {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) CONCAT(OP) expr(Y).          {A = biExpr(p,X,@OP,Y);}
 %type likeop {int}
 likeop(A) ::= LIKEOP(OP).                        {A = @OP;}
-likeop(A) ::= NOT LIKEOP(OP).                    {A = 128+@OP;}
+likeop(A) ::= BANG LIKEOP(OP).                   {A = 128+@OP;}
 expr(A) ::= expr(X) likeop(OP) expr(Y). [LIKEOP] {A = biExpr(p,X,OP,Y);}
 expr(A) ::= expr(X) IS(OP) expr(Y).              {A = biExpr(p,X,@OP,Y);}
 expr(A) ::= expr(X) IS NOT expr(Y).              {A = biExpr(p,X,TK_NOT_IS,Y);}
-expr(A) ::= NOT(OP) expr(X).                     {A = biExpr(p,X,@OP,0);}
+expr(A) ::= BANG(OP) expr(X).                    {A = biExpr(p,X,@OP,0);}
 expr(A) ::= BITNOT(OP) expr(X).                  {A = biExpr(p,X,@OP,0);}
 expr(A) ::= MINUS(OP) expr(X). [BITNOT]          {A = biExpr(p,X,@OP,0);}
 expr(A) ::= PLUS(OP) expr(X). [BITNOT]           {A = biExpr(p,X,@OP,0);}

@@ -35,7 +35,7 @@ static const struct {
   { TK_NULL,             "TK_NULL"            },
   { TK_OR,               "TK_OR"              },
   { TK_AND,              "TK_AND"             },
-  { TK_NOT,              "TK_NOT"             },
+  { TK_BANG,             "TK_BANG"            },
   { TK_IS,               "TK_IS"              },
   { TK_LIKEOP,           "TK_LIKEOP"          },
   { TK_BETWEEN,          "TK_BETWEEN"         },
@@ -354,7 +354,7 @@ void xjd1TraceExpr(String *pOut, const Expr *p){
     case TK_REM:
     case TK_CONCAT:
     case TK_IS:
-    case TK_NOT:
+    case TK_BANG:
     case TK_NOT_IS: {
       if( p->u.bi.pRight ){
         xjd1StringAppend(pOut, "(", 1);

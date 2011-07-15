@@ -58,7 +58,6 @@ struct Keyword {
 */
 static Keyword aKeywordTable[] = {
   { "ALL",          "TK_ALL",        },
-  { "AND",          "TK_AND",        },
   { "ASCENDING",    "TK_ASCENDING",  },
   { "ASC",          "TK_ASCENDING",  },
   { "AS",           "TK_AS",         },
@@ -97,7 +96,6 @@ static Keyword aKeywordTable[] = {
   { "null",         "TK_NULL",       },
   { "OFFSET",       "TK_OFFSET",     },
   { "ORDER",        "TK_ORDER",      },
-  { "OR",           "TK_OR",         },
   { "PRAGMA",       "TK_PRAGMA",     },
   { "ROLLBACK",     "TK_ROLLBACK",   },
   { "SELECT",       "TK_SELECT",     },
