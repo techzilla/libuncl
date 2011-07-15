@@ -149,6 +149,20 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     }
     return pNew;
   }
+
+  /* Generate an Expr object that is a tertiary operator */
+  static Expr *triExpr(Parse *p, Expr *pTest, Expr *pTrue, Expr *pFalse){
+    Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eType = TK_QM; 
+      pNew->eClass = XJD1_EXPR_TRI;
+      pNew->u.tri.pTest = pTest;
+      pNew->u.tri.pIfTrue = pTrue;
+      pNew->u.tri.pIfFalse = pFalse;
+    }
+    return pNew;
+  }
+
   /* Generate an Expr object for an lvalue */
   static Expr *lvalueExpr(Parse *p, Expr *pLeft, Token *pId){
     Expr *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
@@ -286,8 +300,7 @@ expr(A) ::= PLUS(OP) expr(X). [BITNOT]           {A = biExpr(p,X,@OP,0);}
 expr(A) ::= LP select(X) RP.                     {A = subqExpr(p,X);}
 expr(A) ::= LP expr(X) RP.                       {A = X;}
 expr(A) ::= expr(X) COLLATE ID|STRING.           {A = X;}
-expr ::= expr QM expr COLON expr.
-
+expr(A) ::= expr(X) QM expr(Y) COLON expr(Z).    {A = triExpr(p,X,Y,Z);}
 
 %type exprlist {ExprList*}
 %type nexprlist {ExprList*}

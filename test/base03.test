@@ -1,0 +1,22 @@
+-- Basic sanity checking.
+--
+.new t1.db
+.testcase 100
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {a:1, b:2, c:3};
+INSERT INTO c1 VALUE {a:4, b:5, c:6};
+INSERT INTO c1 VALUE {a:7, b:8, c:9};
+INSERT INTO c1 VALUE {a:10, b:11, c:12};
+SELECT c1.a==7 ? c1.b : c1.c FROM c1;
+.result 3 6 8 12
+
+.testcase 110
+SELECT {x: c1.a==7 ? c1.b : c1.c} FROM c1;
+.result {"x":3} {"x":6} {"x":8} {"x":12}
+
+.testcase 120
+SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)==9;
+.result
+.testcase 121
+SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)!=8;
+.result 1 4 10

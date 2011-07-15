@@ -165,6 +165,11 @@ struct Expr {
     } json;
     ExprList *ar;           /* Array literal.  eClass=EXPR_ARRAY */
     ExprList *st;           /* Struct literal.  eClass=EXPR_STRUCT */
+    struct {                /* Tertiary operator.  eClass==EXPR_TRI */
+      Expr *pTest;          /* A in A?B:C */
+      Expr *pIfTrue;        /* B in A?B:C */
+      Expr *pIfFalse;       /* C in A?B:C */
+    } tri;
   } u;
 };
 #define XJD1_EXPR_BI      1
@@ -175,6 +180,7 @@ struct Expr {
 #define XJD1_EXPR_ARRAY   6
 #define XJD1_EXPR_STRUCT  7
 #define XJD1_EXPR_LVALUE  8
+#define XJD1_EXPR_TRI     9
 
 /* A single element of a JSON structure */
 struct JsonStructElem {

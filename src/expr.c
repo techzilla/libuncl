@@ -62,6 +62,12 @@ static int walkExpr(Expr *p, WalkAction *pAction){
       walkExpr(p->u.bi.pRight, pAction);
       break;
     }
+    case XJD1_EXPR_TRI: {
+      walkExpr(p->u.tri.pTest, pAction);
+      walkExpr(p->u.tri.pIfTrue, pAction);
+      walkExpr(p->u.tri.pIfFalse, pAction);
+      break;
+    }
     case XJD1_EXPR_TK: {
       /* Nothing to do */
       break;
@@ -464,12 +470,22 @@ JsonNode *xjd1ExprEval(Expr *p){
       break;
     }
 
-    case TK_BITNOT:
+    case TK_BITNOT: {
       pJLeft = xjd1ExprEval(p->u.bi.pLeft);
       xjd1JsonToReal(pJLeft, &rLeft);
       pRes->eJType = XJD1_REAL;
       pRes->u.r = (double)(~((int)rLeft));
       break;
+    }
+
+    case TK_QM: {
+      if( xjd1ExprTrue(p->u.tri.pTest) ){
+        pRes = xjd1ExprEval(p->u.tri.pIfTrue);
+      }else{
+        pRes = xjd1ExprEval(p->u.tri.pIfFalse);
+      }
+      break;
+    }
 
     default: {
       pRes->eJType = XJD1_NULL;
