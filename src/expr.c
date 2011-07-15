@@ -365,15 +365,39 @@ JsonNode *xjd1ExprEval(Expr *p){
       xjd1JsonFree(pJRight);
       break;
     }
+
+
+    case TK_STAR:
+    case TK_SLASH:
     case TK_MINUS: {
       pJLeft = xjd1ExprEval(p->u.bi.pLeft);
-      pJRight = xjd1ExprEval(p->u.bi.pRight);
       xjd1JsonToReal(pJLeft, &rLeft);
-      xjd1JsonToReal(pJRight, &rRight);
-      pRes->u.r = rLeft-rRight;
+      if( p->u.bi.pRight==0 ){
+        assert( p->eType==TK_MINUS );
+        pRes->u.r = -1.0 * rLeft;
+      }else{
+        pJRight = xjd1ExprEval(p->u.bi.pRight);
+        xjd1JsonToReal(pJRight, &rRight);
+
+        switch( p->eType ){
+          case TK_MINUS: 
+            pRes->u.r = rLeft-rRight; 
+            break;
+
+          case TK_SLASH: 
+            if( rRight!=0.0 ){
+              pRes->u.r = rLeft / rRight; 
+            }
+            break;
+
+          case TK_STAR: 
+            pRes->u.r = rLeft * rRight; 
+            break;
+        }
+        xjd1JsonFree(pJRight);
+      }
       pRes->eJType = XJD1_REAL;
       xjd1JsonFree(pJLeft);
-      xjd1JsonFree(pJRight);
       break;
     }
 
@@ -385,6 +409,67 @@ JsonNode *xjd1ExprEval(Expr *p){
       }
       break;
     }
+
+    /* Bitwise operators: &, |, <<, >> and ~.
+    **
+    ** These follow the javascript conventions. Arguments are converted to
+    ** 64-bit real numbers, and then to 32-bit signed integers. The bitwise
+    ** operation is performed and the result converted back to a 64-bit
+    ** real number.
+    **
+    ** TBD: When XJD1 is enhance to feature an arbitrary precision integer
+    ** type, these will have to change somehow.
+    **
+    ** This block also contains the implementation of the modulo operator.
+    ** As it requires the same 32-bit integer conversions as the bitwise
+    ** operators.
+    */
+    case TK_REM:
+    case TK_RSHIFT:
+    case TK_LSHIFT:
+    case TK_BITAND:
+    case TK_BITOR: {
+      int iLeft;
+      int iRight;
+
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+      xjd1JsonToReal(pJLeft, &rLeft);
+      xjd1JsonToReal(pJRight, &rRight);
+      iLeft = rLeft;
+      iRight = rRight;
+
+      pRes->eJType = XJD1_REAL;
+      switch( p->eType ){
+        case TK_RSHIFT: 
+          if( iRight>=32 ){
+            pRes->u.r = (double)(iLeft<0 ? -1 : 0);
+          }else{
+            pRes->u.r = (double)(iLeft >> iRight);
+          }
+          break;
+
+        case TK_LSHIFT:
+          if( iRight>=32 ){
+            pRes->u.r = 0;
+          }else{
+            pRes->u.r = (double)(iLeft << iRight);
+          }
+          break;
+
+        case TK_BITAND: pRes->u.r = (double)(iLeft & iRight); break;
+        case TK_BITOR:  pRes->u.r = (double)(iLeft | iRight); break;
+        case TK_REM:    pRes->u.r = (double)(iLeft % iRight); break;
+      }
+      break;
+    }
+
+    case TK_BITNOT:
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      xjd1JsonToReal(pJLeft, &rLeft);
+      pRes->eJType = XJD1_REAL;
+      pRes->u.r = (double)(~((int)rLeft));
+      break;
 
     default: {
       pRes->eJType = XJD1_NULL;

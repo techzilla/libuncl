@@ -49,3 +49,58 @@ SELECT NOT "cat" FROM c1;
 SELECT NOT "" FROM c1;
 .result false true false true
 
+.testcase 6
+SELECT 1 & 2               FROM c1;
+SELECT "5" & 4             FROM c1;
+.result 0 4
+
+.testcase 7
+SELECT 1 | 2               FROM c1;
+SELECT "5" | 4             FROM c1;
+.result 3 5
+
+.testcase 8
+SELECT  1  << 2            FROM c1;
+SELECT "5" << 4            FROM c1;
+.result 4 80
+
+.testcase 9
+SELECT  1  >> 2            FROM c1;
+SELECT "5" >> 4            FROM c1;
+.result 0 0
+
+.testcase 10
+SELECT  ~1                 FROM c1;
+SELECT  ~"5"               FROM c1;
+.result -2 -6
+
+.testcase 11
+SELECT 1 * 7 FROM c1;
+SELECT 45 * 4 FROM c1;
+SELECT 67 * 2 FROM c1;
+.result 7 180 134
+
+.testcase 12
+SELECT 1 % 7 FROM c1;
+SELECT 45 % 4 FROM c1;
+SELECT 67 % 2 FROM c1;
+.result 1 1 1
+
+.testcase 13
+SELECT 1 / 7 FROM c1;
+SELECT 45 / 4 FROM c1;
+SELECT 67 / 2 FROM c1;
+.result 0.1428571428571428 11.25 33.5
+
+.testcase 14
+SELECT 1 + 7 FROM c1;
+SELECT 45 + 4 FROM c1;
+SELECT 67 + 2 FROM c1;
+.result 8 49 69
+
+.testcase 15
+SELECT 1 - 7 FROM c1;
+SELECT 45 - 4 FROM c1;
+SELECT 67 - 2 FROM c1;
+.result -6 41 65
+
