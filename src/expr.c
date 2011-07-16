@@ -310,6 +310,45 @@ static int inOperator(JsonNode *pA, JsonNode *pB){
 }
 
 /*
+** Return TRUE if and only if all of the following are true:
+**
+**   (1)  pA exists
+**   (2)  pB exists and is an array or structure.
+**   (3)  pA is value contained within pB
+*/
+static int withinOperator(JsonNode *pA, JsonNode *pB){
+  int rc = 0;
+  if( pA==0 ) return 0;
+  if( pB==0 ) return 0;
+  switch( pB->eJType ){
+    case XJD1_ARRAY: {
+      int i;
+      for(i=0; i<pB->u.ar.nElem; i++){
+        if( xjd1JsonCompare(pA, pB->u.ar.apElem[i])==0 ){
+          rc = 1;
+          break;
+        }
+      }
+      break;
+    }
+    case XJD1_STRUCT: {
+      JsonStructElem *p;
+      for(p=pB->u.st.pFirst; p; p=p->pNext){
+        if( xjd1JsonCompare(pA, p->pValue)==0 ){
+          rc = 1;
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      rc = 0;
+    }
+  }
+  return rc;
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
@@ -594,6 +633,15 @@ JsonNode *xjd1ExprEval(Expr *p){
       pJLeft = xjd1ExprEval(p->u.bi.pLeft);
       pJRight = xjd1ExprEval(p->u.bi.pRight);
       pRes->eJType = inOperator(pJLeft, pJRight) ? XJD1_TRUE : XJD1_FALSE;
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
+      break;
+    }
+
+    case TK_WITHIN: {
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+      pRes->eJType = withinOperator(pJLeft, pJRight) ? XJD1_TRUE : XJD1_FALSE;
       xjd1JsonFree(pJLeft);
       xjd1JsonFree(pJRight);
       break;

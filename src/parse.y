@@ -80,7 +80,14 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
 
   /* Convert a token into a zero-terminated string */
   static char *tokenStr(Parse *p, Token *pTok){
-    return pTok ? xjd1PoolDup(p->pPool, pTok->z, pTok->n) : 0;
+    char *z;
+    if( pTok ){
+      z = xjd1PoolDup(p->pPool, pTok->z, pTok->n);
+      if( z && z[0]=='"' ) xjd1DequoteString(z, pTok->n);
+    }else{
+      z = 0;
+    }
+    return z;
   }
 
   /* A JSON literal for a string */
@@ -89,7 +96,6 @@ input ::= cmd(X) SEMI.   {p->pCmd = X;}
     if( pNew ){
       pNew->eJType = XJD1_STRING;
       pNew->u.z = tokenStr(p, pTok);
-      xjd1DequoteString(pNew->u.z, pTok->n);
     }
     return pNew;
   }

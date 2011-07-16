@@ -59,3 +59,33 @@ SELECT 1 in null;
 .testcase 222
 SELECT 1 in 1;
 .result false
+
+.testcase 300
+SELECT 0 WITHIN [1,2,3];
+.result false
+.testcase 301
+SELECT 1 WITHIN [1,2,3];
+.result true
+.testcase 302
+SELECT 2 WITHIN [1,2,3];
+.result true
+.testcase 303
+SELECT 3 WITHIN [1,2,3];
+.result true
+.testcase 304
+SELECT 4 WITHIN [1,2,3];
+.result false
+.testcase 305
+SELECT "2" WITHIN [1,2,3];
+.result false
+
+.testcase 310
+SELECT true WITHIN {a:false, b:null, c:true, d:123, e:{x:10}};
+.result true
+.breakpoint
+.testcase 311
+SELECT {"x": 10} WITHIN {a:false, b:null, c:true, d:123, e:{x:10}};
+.result true
+.testcase 312
+SELECT {"x": 11} WITHIN {a:false, b:null, c:true, d:123, e:{x:10}};
+.result false
