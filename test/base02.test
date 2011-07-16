@@ -122,6 +122,30 @@ INSERT INTO c2 VALUE { a:1, b:2, c:"d", d:3 };
 SELECT c2.a FROM c2;
 SELECT c2["b"] FROM c2;
 SELECT c2[c2.c] FROM c2;
-.result 1 2 3
+SELECT c2["e"] FROM c2;
+.result 1 2 3 null
+
+.testcase 18
+DELETE FROM c2;
+INSERT INTO c2 VALUE { x: [10,11,12,13,14,15,16] };
+SELECT c2.x[0]          FROM c2;
+SELECT c2.x["1"]        FROM c2;
+SELECT c2.x[2.01]       FROM c2;
+SELECT c2.x[c2.x[6]-13] FROM c2;
+SELECT c2.x[-1]         FROM c2;
+SELECT c2.x[7]          FROM c2;
+.result 10 11 null 13 null null
+
+.testcase 19
+DELETE FROM c2;
+INSERT INTO c2 VALUE { x: "abcdefg" };
+SELECT c2.x[0]       FROM c2;
+SELECT c2.x["1"]     FROM c2;
+SELECT c2.x[2.01]    FROM c2;
+SELECT c2.x[1+1+1]   FROM c2;
+SELECT c2.x[-1]      FROM c2;
+SELECT c2.x[7]       FROM c2;
+SELECT c2.x[0][0][0] FROM c2;
+.result "a" "b" null "d" null null "a"
 
 

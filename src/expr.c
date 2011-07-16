@@ -310,6 +310,7 @@ static int inOperator(JsonNode *pA, JsonNode *pB){
 }
 
 /*
+** Evaluate an expression.  Return the result as a JSON object.
 ** Return TRUE if and only if all of the following are true:
 **
 **   (1)  pA exists
@@ -349,6 +350,16 @@ static int withinOperator(JsonNode *pA, JsonNode *pB){
 }
 
 /*
+** Assuming zIn points to the first byte of a UTF-8 character,
+** advance zIn to point to the first byte of the next UTF-8 character.
+*/
+#define XJD1_SKIP_UTF8(zIn) {                          \
+    if( (*(zIn++))>=0xc0 ){                            \
+          while( (*zIn & 0xc0)==0x80 ){ zIn++; }       \
+    }                                                  \
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
@@ -377,10 +388,18 @@ JsonNode *xjd1ExprEval(Expr *p){
     ** If x is of type XJD1_STRUCT, then expression y is converted to
     ** a string. The value returned is the value of property y of 
     ** object x.
+    **
+    ** If x is of type XJD1_ARRAY, then expression y is converted to
+    ** a number. If that number is an integer, then it is the index of
+    ** the array element to return.
+    **
+    ** If x is of type XJD1_STRING, then it is treated as an array of 
+    ** characters. Processing proceeds as for XJD1_ARRAY.
     */
     case TK_LB: {
       pJLeft = xjd1ExprEval(p->u.bi.pLeft);
       pJRight = xjd1ExprEval(p->u.bi.pRight);
+      pRes = 0;
 
       switch( pJLeft->eJType ){
         case XJD1_STRUCT: {
@@ -392,18 +411,48 @@ JsonNode *xjd1ExprEval(Expr *p){
           break;
         }
 
-        case XJD1_ARRAY:
+        case XJD1_ARRAY: {
+          int iIdx;
+          if( xjd1JsonToReal(pJRight, &rRight) ) break;
+          iIdx = (int)rRight;
+          if( (double)iIdx==rRight && iIdx>=0 && iIdx<pJLeft->u.ar.nElem ){
+            pRes = xjd1JsonRef(pJLeft->u.ar.apElem[iIdx]);
+          }
+          break;
+        }
+
         case XJD1_STRING: {
+          int iIdx;
+          if( xjd1JsonToReal(pJRight, &rRight) ) break;
+          iIdx = (int)rRight;
+          if( (double)iIdx==rRight && iIdx>=0 ){
+            char *z = pJLeft->u.z;
+            for(z=pJLeft->u.z; *z && iIdx!=0; iIdx--){
+              XJD1_SKIP_UTF8(z);
+            }
+            if( *z ){
+              String x;
+              char *zEnd = z;
+              pRes = xjd1JsonNew(0);
+              if( pRes ){
+                XJD1_SKIP_UTF8(zEnd);
+                xjd1StringInit(&x, 0, 0);
+                xjd1StringAppend(&x, z, zEnd-z);
+                pRes->eJType = XJD1_STRING;
+                pRes->u.z = xjd1StringGet(&x);
+              }
+            }
+          }
           break;
         }
 
         default:
-          pRes = nullJson();
           break;
       }
 
       xjd1JsonFree(pJLeft);
       xjd1JsonFree(pJRight);
+      if( pRes==0 ) pRes = nullJson();
       return pRes;
     }
 
