@@ -51,7 +51,7 @@ int xjd1QueryRewind(Query *p){
     xjd1DataSrcRewind(p->u.simple.pFrom);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
-    p->u.compound.doneLeft = xjd1QueryEOF(p->u.compound.pLeft);
+    p->u.compound.doneLeft = 0;
     xjd1QueryRewind(p->u.compound.pRight);
   }
   return XJD1_OK;
@@ -111,24 +111,6 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
   return pOut;
 }
 
-
-/* Return true if there are no more rows available on this query */
-int xjd1QueryEOF(Query *p){
-  int rc;
-  if( p->eQType==TK_SELECT ){
-    rc = xjd1DataSrcEOF(p->u.simple.pFrom);
-  }else{
-    rc = 0;
-    if( !p->u.compound.doneLeft ){
-      rc = xjd1QueryEOF(p->u.compound.pLeft);
-      if( rc ) p->u.compound.doneLeft = 1;
-    }
-    if( p->u.compound.doneLeft ){
-      rc = xjd1QueryEOF(p->u.compound.pRight);
-    }
-  }
-  return rc;
-}
 
 /*
 ** The destructor for a Query object.

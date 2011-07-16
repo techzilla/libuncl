@@ -16,6 +16,10 @@ SELECT FROM abc;
 SELECT FROM def;
 .result {"name":"def"}
 
+.testcase 125
+SELECT FROM abc UNION ALL SELECT FROM def;
+.result {"name":"abc"} {"name":"def"}
+
 .testcase 130
 SELECT { p:1, q:2 } FROM abc;
 .result {"p":1,"q":2}

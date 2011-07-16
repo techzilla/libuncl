@@ -34,7 +34,6 @@
 ** found in parse.h 
 */
 #define TK_NOT_LIKEOP        (TK_LIKEOP+128)
-#define TK_NOT_IS            (TK_IS+128)
 #define TK_FUNCTION          100
 #define TK_SPACE             101
 #define TK_ILLEGAL           102
@@ -329,7 +328,6 @@ void xjd1Error(xjd1*,int,const char*,...);
 int xjd1DataSrcInit(DataSrc*,Query*);
 int xjd1DataSrcRewind(DataSrc*);
 int xjd1DataSrcStep(DataSrc*);
-int xjd1DataSrcEOF(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);
 JsonNode *xjd1DataSrcDoc(DataSrc*, const char*);
 
@@ -372,7 +370,6 @@ int xjd1PragmaStep(xjd1_stmt*);
 int xjd1QueryInit(Query*,xjd1_stmt*,Query*);
 int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
-int xjd1QueryEOF(Query*);
 int xjd1QueryClose(Query*);
 JsonNode *xjd1QueryDoc(Query*, const char*);
 

@@ -57,6 +57,18 @@ int xjd1DataSrcStep(DataSrc *p){
   int rc= XJD1_DONE;
   if( p==0 ) return XJD1_DONE;
   switch( p->eDSType ){
+    case TK_COMMA: {
+      rc = xjd1DataSrcStep(p->u.join.pRight);
+      if( rc==XJD1_DONE ){
+        xjd1DataSrcRewind(p->u.join.pRight);
+        rc = xjd1DataSrcStep(p->u.join.pLeft);
+      }
+      break;
+    }
+    case TK_SELECT: {
+      rc = xjd1QueryStep(p->u.subq.q);
+      break;
+    }
     case TK_ID: {
       rc = sqlite3_step(p->u.tab.pStmt);
       xjd1JsonFree(p->pValue);
@@ -100,6 +112,10 @@ JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
       if( pRes==0 ) pRes = xjd1DataSrcDoc(p->u.join.pRight, zDocName);
       break;
     }
+    case TK_SELECT: {
+      pRes = xjd1QueryDoc(p->u.subq.q, zDocName);
+      break;
+    }
     case TK_ID: {
       if( zDocName==0 || strcmp(p->u.tab.zName, zDocName)==0 ){
         pRes = xjd1JsonRef(p->pValue);
@@ -123,6 +139,15 @@ int xjd1DataSrcRewind(DataSrc *p){
   if( p==0 ) return XJD1_DONE;
   xjd1JsonFree(p->pValue);  p->pValue = 0;
   switch( p->eDSType ){
+    case TK_COMMA: {
+      xjd1DataSrcRewind(p->u.join.pLeft);
+      xjd1DataSrcRewind(p->u.join.pRight);
+      break;
+    }
+    case TK_SELECT: {
+      xjd1QueryRewind(p->u.subq.q);
+      break;
+    }
     case TK_ID: {
       sqlite3_reset(p->u.tab.pStmt);
       return xjd1DataSrcStep(p);
@@ -133,13 +158,6 @@ int xjd1DataSrcRewind(DataSrc *p){
     }
   }
   return XJD1_DONE;
-}
-
-/*
-** Return true if the data source is at the end of file
-*/
-int xjd1DataSrcEOF(DataSrc *p){
-  return 1;
 }
 
 /*

@@ -1,0 +1,16 @@
+-- Basic sanity checking.
+--
+.new t1.db
+.testcase 100
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {a:1, b:"one"};
+INSERT INTO c1 VALUE {a:2, b:"two"};
+CREATE COLLECTION c2;
+INSERT INTO c2 VALUE {a:1, c:"once"};
+INSERT INTO c2 VALUE {a:2, c:"twice"};
+INSERT INTO c2 VALUE {a:3, c:"thrice"};
+
+SELECT {a:c1.a, b:c1.b, c:c2.c} 
+  FROM c1, c2
+ WHERE c1.a==c2.a;
+.result {"a":1,"b":"one","c":"once"} {"a":2,"b":"two","c":"twice"}
