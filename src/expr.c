@@ -426,18 +426,18 @@ JsonNode *xjd1ExprEval(Expr *p){
           if( xjd1JsonToReal(pJRight, &rRight) ) break;
           iIdx = (int)rRight;
           if( (double)iIdx==rRight && iIdx>=0 ){
-            char *z = pJLeft->u.z;
-            for(z=pJLeft->u.z; *z && iIdx!=0; iIdx--){
+            unsigned char *z = (unsigned char*)pJLeft->u.z;
+            for(; *z && iIdx!=0; iIdx--){
               XJD1_SKIP_UTF8(z);
             }
             if( *z ){
               String x;
-              char *zEnd = z;
+              unsigned char *zEnd = (unsigned char*)z;
               pRes = xjd1JsonNew(0);
               if( pRes ){
                 XJD1_SKIP_UTF8(zEnd);
                 xjd1StringInit(&x, 0, 0);
-                xjd1StringAppend(&x, z, zEnd-z);
+                xjd1StringAppend(&x, (char*)z, zEnd-(unsigned char*)z);
                 pRes->eJType = XJD1_STRING;
                 pRes->u.z = xjd1StringGet(&x);
               }
