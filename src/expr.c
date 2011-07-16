@@ -257,6 +257,59 @@ static JsonNode *getProperty(JsonNode *pStruct, const char *zProperty){
 }
 
 /*
+** Return TRUE if and only if all of the following are true:
+**
+**   (1)  pA exists
+**   (2)  pB exists and is either an array or a structure
+**   (3)  pA is a label within pB
+*/
+static int inOperator(JsonNode *pA, JsonNode *pB){
+  char *zLHS;
+  int rc = 0;
+  char zBuf[100];
+  if( pA==0 ) return 0;
+  if( pB==0 ) return 0;
+  switch( pA->eJType ){
+    case XJD1_FALSE:
+    case XJD1_TRUE:
+    case XJD1_NULL:
+    case XJD1_ARRAY:
+    case XJD1_STRUCT:
+      return 0;
+    case XJD1_REAL:
+      sqlite3_snprintf(sizeof(zBuf), zBuf, "%g", pA->u.r);
+      zLHS = zBuf;
+      break;
+    case XJD1_STRING:
+      zLHS = pA->u.z;
+      break;
+  }
+  switch( pB->eJType ){
+    case XJD1_ARRAY: {
+      char *zTail;
+      int x = strtol(zLHS, &zTail, 0);
+      if( zTail[0]!=0 ) return 0;
+      rc = (x>=0 && x<pB->u.ar.nElem);
+      break;
+    }
+    case XJD1_STRUCT: {
+      JsonStructElem *p;
+      for(p=pB->u.st.pFirst; p; p=p->pNext){
+        if( strcmp(p->zLabel, zLHS)==0 ){
+          rc = 1;
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      rc = 0;
+    }
+  }
+  return rc;
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
@@ -534,6 +587,15 @@ JsonNode *xjd1ExprEval(Expr *p){
       }else{
         pRes = xjd1ExprEval(p->u.tri.pIfFalse);
       }
+      break;
+    }
+
+    case TK_IN: {
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+      pRes->eJType = inOperator(pJLeft, pJRight) ? XJD1_TRUE : XJD1_FALSE;
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
       break;
     }
 

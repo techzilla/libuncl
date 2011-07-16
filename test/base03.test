@@ -20,3 +20,42 @@ SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)==9;
 .testcase 121
 SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)!=8;
 .result 1 4 10
+
+.testcase 200
+SELECT 1 in [2,3,4];
+.result true
+.testcase 201
+SELECT 3 in [2,3,4];
+.result false
+.testcase 202
+SELECT "1" in [2,3,4];
+.result true
+.testcase 203
+SELECT "3" in [2,3,4];
+.result false
+
+.testcase 210
+SELECT "a" in {b:1, c:2, d:3};
+.result false
+.testcase 211
+SELECT "b" in {b:1, c:2, d:3};
+.result true
+.testcase 212
+SELECT "c" in {b:1, c:2, d:3};
+.result true
+.testcase 213
+SELECT "d" in {b:1, c:2, d:3};
+.result true
+.testcase 214
+SELECT "e" in {b:1, c:2, d:3};
+.result false
+
+.testcase 220
+SELECT null in [1,2,3];
+.result false
+.testcase 221
+SELECT 1 in null;
+.result false
+.testcase 222
+SELECT 1 in 1;
+.result false
