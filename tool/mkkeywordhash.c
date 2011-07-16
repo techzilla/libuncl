@@ -85,7 +85,6 @@ static Keyword aKeywordTable[] = {
   { "INSERT",       "TK_INSERT",     },
   { "INTERSECT",    "TK_INTERSECT",  },
   { "in",           "TK_IN",         },
-  { "IN",           "TK_IN",         },
   { "INTO",         "TK_INTO",       },
   { "LIKE",         "TK_LIKEOP",     },
   { "LIMIT",        "TK_LIMIT",      },
@@ -103,6 +102,7 @@ static Keyword aKeywordTable[] = {
   { "UPDATE",       "TK_UPDATE",     },
   { "VALUE",        "TK_VALUE",      },
   { "WHERE",        "TK_WHERE",      },
+  { "WITHIN",       "TK_WITHIN",     },
 };
 
 /* Number of keywords */
