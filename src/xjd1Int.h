@@ -276,6 +276,9 @@ struct DataSrc {
     struct {                /* A subquery.  eDSType==TK_SELECT */
       Query *q;                /* The subquery */
     } subq;
+    struct {                /* An empty FROM clause.  eDSType==TK_NULL */
+      int isDone;              /* True if single row already returned */
+    } null;
   } u;
 };
 

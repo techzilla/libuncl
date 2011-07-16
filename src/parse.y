@@ -459,8 +459,20 @@ expr_opt(A) ::= expr(X).                {A = X;}
     }
     return pNew;
   }
+
+  /* Create a new data source that represents an empty FROM clause.
+  ** This is used for queries of the form "SELECT <expr>". It returns a
+  ** single object with no properties.  
+  */
+  static DataSrc *nullDataSrc(Parse *p){
+    DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
+    if( pNew ){
+      pNew->eDSType = TK_NULL;
+    }
+    return pNew;
+  }
 }
-from(A) ::= .                                    {A = 0;}
+from(A) ::= .                                    {A = nullDataSrc(p);}
 from(A) ::= FROM fromlist(X).                    {A = X;}
 fromlist(A) ::= fromitem(X).                     {A = X;}
 fromlist(A) ::= fromlist(X) COMMA fromitem(Y).   {A = joinDataSrc(p,X,Y);}

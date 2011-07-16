@@ -40,6 +40,10 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       sqlite3_free(zSql);
       break;
     }
+
+    case TK_NULL:                 /* Initializing a NULL DS is a no-op */
+      assert( p->u.null.isDone==0 );
+      break;
   }
   return XJD1_OK;
 }
@@ -65,6 +69,11 @@ int xjd1DataSrcStep(DataSrc *p){
         p->u.tab.eofSeen = 1;
         rc = XJD1_DONE;
       }
+      break;
+    }
+    case TK_NULL: {
+      rc = (p->u.null.isDone ? XJD1_DONE : XJD1_ROW);
+      p->u.null.isDone = 1;
       break;
     }
   }
@@ -116,6 +125,10 @@ int xjd1DataSrcRewind(DataSrc *p){
   switch( p->eDSType ){
     case TK_ID: {
       sqlite3_reset(p->u.tab.pStmt);
+      return xjd1DataSrcStep(p);
+    }
+    case TK_NULL: {
+      p->u.null.isDone = 0;
       return xjd1DataSrcStep(p);
     }
   }

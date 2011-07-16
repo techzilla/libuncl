@@ -103,3 +103,17 @@ SELECT 1 - 7 FROM c1;
 SELECT 45 - 4 FROM c1;
 SELECT 67 - 2 FROM c1;
 .result -6 41 65
+
+
+.testcase 16
+SELECT 1.12;
+SELECT "hello world";
+SELECT a;
+SELECT { x: "value" };
+SELECT [1,4,9,16,25];
+SELECT null;
+SELECT true;
+SELECT false;
+.result 1.12 "hello world" null {"x":"value"} [1,4,9,16,25] null true false
+
+
