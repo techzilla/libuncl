@@ -210,7 +210,11 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     if( pNew ){
       pNew->eType = TK_STRUCT;
       pNew->eClass = XJD1_EXPR_STRUCT;
-      pNew->u.st = pList;
+      if( pList ){
+        pNew->u.st = pList;
+      }else{
+        pNew->u.st = (ExprList *)xjd1PoolMallocZero(p->pPool, sizeof(ExprList));
+      }
     }
     return pNew;
   }
@@ -221,7 +225,11 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
     if( pNew ){
       pNew->eType = TK_ARRAY;
       pNew->eClass = XJD1_EXPR_ARRAY;
-      pNew->u.ar = pList;
+      if( pList ){
+        pNew->u.ar = pList;
+      }else{
+        pNew->u.ar = (ExprList *)xjd1PoolMallocZero(p->pPool, sizeof(ExprList));
+      }
     }
     return pNew;
   }

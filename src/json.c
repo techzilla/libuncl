@@ -200,6 +200,7 @@ void xjd1JsonRender(String *pOut, const JsonNode *p){
       case XJD1_ARRAY: {
         char cSep = '[';
         int i;
+        if( p->u.ar.nElem==0 ) xjd1StringAppend(pOut, &cSep, 1);
         for(i=0; i<p->u.ar.nElem; i++){
           xjd1StringAppend(pOut, &cSep, 1);
           cSep = ',';
@@ -211,6 +212,7 @@ void xjd1JsonRender(String *pOut, const JsonNode *p){
       case XJD1_STRUCT: {
         char cSep = '{';
         JsonStructElem *pElem;
+        if( p->u.st.pFirst==0 ) xjd1StringAppend(pOut, &cSep, 1);
         for(pElem=p->u.st.pFirst; pElem; pElem=pElem->pNext){
           xjd1StringAppend(pOut, &cSep, 1);
           cSep = ',';

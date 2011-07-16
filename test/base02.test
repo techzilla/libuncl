@@ -148,4 +148,8 @@ SELECT c2.x[7]       FROM c2;
 SELECT c2.x[0][0][0] FROM c2;
 .result "a" "b" null "d" null null "a"
 
+.testcase 20
+SELECT [];
+SELECT {};
+.result [] {}
 
