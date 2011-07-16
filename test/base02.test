@@ -116,4 +116,12 @@ SELECT true;
 SELECT false;
 .result 1.12 "hello world" null {"x":"value"} [1,4,9,16,25] null true false
 
+.testcase 17
+CREATE COLLECTION c2;
+INSERT INTO c2 VALUE { a:1, b:2, c:"d", d:3 };
+SELECT c2.a FROM c2;
+SELECT c2["b"] FROM c2;
+SELECT c2[c2.c] FROM c2;
+.result 1 2 3
+
 

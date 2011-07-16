@@ -231,6 +231,32 @@ static JsonNode *nullJson(void){
 }
 
 /*
+** If the JSON node passed as the first argument is of type XJD1_STRUCT,
+** attempt to return a pointer to property zProperty.
+**
+** If zProperty is not defined, or if pStruct is not of type XJD1_STRUCT,
+** return a pointer to a NULL value.
+*/
+static JsonNode *getProperty(JsonNode *pStruct, const char *zProperty){
+  JsonStructElem *pElem;
+  JsonNode *pRes = 0;
+
+  if( pStruct && pStruct->eJType==XJD1_STRUCT ){
+    for(pElem=pStruct->u.st.pFirst; pElem; pElem=pElem->pNext){
+      if( strcmp(pElem->zLabel, zProperty)==0 ){
+        pRes = xjd1JsonRef(pElem->pValue);
+        break;
+      }
+    }
+  }
+
+  if( pRes==0 ){
+    pRes = nullJson();
+  }
+  return pRes;
+}
+
+/*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
 ** The caller must free the returned JSON by a call xjdJsonFree().
@@ -246,25 +272,49 @@ JsonNode *xjd1ExprEval(Expr *p){
     case TK_JVALUE: {
       return xjd1JsonRef(p->u.json.p);
     }
+
     case TK_DOT: {
       JsonNode *pBase = xjd1ExprEval(p->u.lvalue.pLeft);
-      JsonStructElem *pElem;
-      pRes = 0;
-      if( pBase && pBase->eJType==XJD1_STRUCT ){
-        for(pElem=pBase->u.st.pFirst; pElem; pElem=pElem->pNext){
-          if( strcmp(pElem->zLabel, p->u.lvalue.zId)==0 ){
-            pRes = xjd1JsonRef(pElem->pValue);
-            break;
-          }
-        }
-      }
+      pRes = getProperty(pBase, p->u.lvalue.zId);
       xjd1JsonFree(pBase);
-      if( pRes==0 ) pRes = nullJson();
       return pRes;
     }
+
+    /* The x[y] operator. The result depends on the type of value x.
+    **
+    ** If x is of type XJD1_STRUCT, then expression y is converted to
+    ** a string. The value returned is the value of property y of 
+    ** object x.
+    */
     case TK_LB: {
-      return nullJson();   /* TBD */
+      pJLeft = xjd1ExprEval(p->u.bi.pLeft);
+      pJRight = xjd1ExprEval(p->u.bi.pRight);
+
+      switch( pJLeft->eJType ){
+        case XJD1_STRUCT: {
+          String idx;
+          xjd1StringInit(&idx, 0, 0);
+          xjd1JsonToString(pJRight, &idx);
+          pRes = getProperty(pJLeft, idx.zBuf);
+          xjd1StringClear(&idx);
+          break;
+        }
+
+        case XJD1_ARRAY:
+        case XJD1_STRING: {
+          break;
+        }
+
+        default:
+          pRes = nullJson();
+          break;
+      }
+
+      xjd1JsonFree(pJLeft);
+      xjd1JsonFree(pJRight);
+      return pRes;
     }
+
     case TK_ID: {
       if( p->pQuery ){
         return xjd1QueryDoc(p->pQuery, p->u.id.zId);
