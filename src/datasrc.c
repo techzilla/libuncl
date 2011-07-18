@@ -103,7 +103,7 @@ int xjd1DataSrcStep(DataSrc *p){
 JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
   JsonNode *pRes = 0;
   if( p==0 ) return 0;
-  if( zDocName && p->zAs && strcmp(p->zAs, zDocName) ){
+  if( zDocName && p->zAs && 0==strcmp(p->zAs, zDocName) ){
     return xjd1JsonRef(p->pValue);
   }
   switch( p->eDSType ){
@@ -117,7 +117,7 @@ JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
       break;
     }
     case TK_ID: {
-      if( zDocName==0 || strcmp(p->u.tab.zName, zDocName)==0 ){
+      if( zDocName==0 || (p->zAs==0 && strcmp(p->u.tab.zName, zDocName)==0) ){
         pRes = xjd1JsonRef(p->pValue);
       }
       break;

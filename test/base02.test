@@ -153,3 +153,20 @@ SELECT [];
 SELECT {};
 .result [] {}
 
+.testcase 21
+CREATE COLLECTION c3;
+INSERT INTO c3 VALUE { one: 1, two: 2 };
+SELECT x.one FROM c3 AS x;
+SELECT x.two FROM c3 AS x;
+.result 1 2
+
+.testcase 21
+SELECT c3.one FROM c3 AS x;
+SELECT c3.two FROM c3 AS x;
+.result null null
+
+.testcase 22
+SELECT x FROM c3 AS x;
+SELECT c3 FROM c3 AS x;
+.result {"one":1,"two":2} null
+
