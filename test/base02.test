@@ -170,3 +170,27 @@ SELECT x FROM c3 AS x;
 SELECT c3 FROM c3 AS x;
 .result {"one":1,"two":2} null
 
+.testcase 23
+SELECT FROM (SELECT FROM c3) AS x;
+.result {"one":1,"two":2} 
+
+.testcase 24
+SELECT FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result {"one":2,"two":1} 
+
+.testcase 25
+SELECT x FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result {"one":2,"two":1} 
+
+.testcase 26
+SELECT x.one FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result 2
+
+.testcase 27
+SELECT c3 FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result null
+
+.testcase 28
+SELECT xyz FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result null
+

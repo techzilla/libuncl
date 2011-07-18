@@ -66,7 +66,10 @@ int xjd1DataSrcStep(DataSrc *p){
       break;
     }
     case TK_SELECT: {
+      xjd1JsonFree(p->pValue);
+      p->pValue = 0;
       rc = xjd1QueryStep(p->u.subq.q);
+      p->pValue = xjd1QueryDoc(p->u.subq.q, 0);
       break;
     }
     case TK_ID: {
@@ -113,7 +116,10 @@ JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
       break;
     }
     case TK_SELECT: {
-      pRes = xjd1QueryDoc(p->u.subq.q, zDocName);
+      assert( p->zAs );
+      if( zDocName==0 ){
+        pRes = xjd1JsonRef(p->pValue);
+      }
       break;
     }
     case TK_ID: {
