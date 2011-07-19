@@ -50,6 +50,7 @@ typedef struct DataSrc DataSrc;
 typedef struct Expr Expr;
 typedef struct ExprItem ExprItem;
 typedef struct ExprList ExprList;
+typedef struct Function Function;
 typedef struct JsonNode JsonNode;
 typedef struct JsonStructElem JsonStructElem;
 typedef struct Parse Parse;
@@ -156,7 +157,9 @@ struct Expr {
     } id;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       char *zFName;            /* Name of the function */
-      ExprList *args;          /* List of argumnts */
+      ExprList *args;          /* List of arguments */
+      Function *pFunction;     /* Function object */
+      JsonNode **apArg;        /* Array to martial function arguments in */
     } func;
     struct {                /* Subqueries.  eClass=EXPR_Q */
       Query *p;                /* The subquery */
@@ -427,5 +430,9 @@ void xjd1TraceExprList(String*,int, const ExprList*);
 /******************************** update.c ***********************************/
 int xjd1UpdateStep(xjd1_stmt*);
 
+/******************************** func.c *************************************/
+int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt);
+void xjd1FunctionClose(Expr *p);
+JsonNode *xjd1FunctionEval(Expr *p);
 
 #endif /* _XJD1INT_H */

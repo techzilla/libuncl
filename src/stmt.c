@@ -43,7 +43,7 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   if( pCmd ){
     switch( pCmd->eCmdType ){
       case TK_SELECT: {
-        xjd1QueryInit(pCmd->u.q.pQuery, p, 0);
+        rc = xjd1QueryInit(pCmd->u.q.pQuery, p, 0);
         break;
       }
       case TK_INSERT: {
@@ -61,6 +61,12 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
         break;
       }
     }
+  }
+
+  if( rc!=XJD1_OK ){
+    xjd1Error(pConn, rc, "");
+    xjd1_stmt_delete(p);
+    *ppNew = 0;
   }
   return rc;
 }

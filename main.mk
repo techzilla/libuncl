@@ -34,11 +34,12 @@ TCCX =  $(TCC) $(OPTS) -I. -I$(TOP)/src -I$(TOP)
 TCCX += -DSQLITE_OMIT_LOAD_EXTENSION
 TCCX += -DSQLITE_THREADSAFE=0
 
-# Object files for the SQLite library.
+# Object files for the XJD1 library.
 #
 LIBOBJ+= complete.o conn.o context.o
 LIBOBJ+= datasrc.o delete.o
 LIBOBJ+= expr.o
+LIBOBJ+= func.o
 LIBOBJ+= json.o
 LIBOBJ+= memory.o
 LIBOBJ+= parse.o pragma.o

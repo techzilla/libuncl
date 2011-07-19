@@ -111,9 +111,19 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
   assert( p );
   p->pStmt = pAction->pStmt;
   p->pQuery = pAction->pQuery;
-  if( p->eClass==XJD1_EXPR_Q ){
-    rc = xjd1QueryInit(p->u.subq.p, pAction->pStmt, pAction->pQuery);
+  switch( p->eClass ){
+    case XJD1_EXPR_Q:
+      rc = xjd1QueryInit(p->u.subq.p, pAction->pStmt, pAction->pQuery);
+      break;
+
+    case XJD1_EXPR_FUNC:
+      rc = xjd1FunctionInit(p, pAction->pStmt);
+      break;
+
+    default:
+      break;
   }
+  
   return rc;
 }
 
@@ -479,6 +489,11 @@ JsonNode *xjd1ExprEval(Expr *p){
         xjd1JsonFree(pJLeft);
         pRes = xjd1ExprEval(p->u.bi.pRight);
       }
+      return pRes;
+    }
+
+    case TK_FUNCTION: {
+      pRes = xjd1FunctionEval(p);
       return pRes;
     }
   }

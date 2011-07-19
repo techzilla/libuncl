@@ -146,23 +146,24 @@ static void clearResultList(ResultList *pList){
 ** within the statement.
 */
 int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
+  int rc;
   if( pQuery==0 ) return XJD1_OK;
   pQuery->pStmt = pStmt;
   pQuery->pOuter = pOuter;
   if( pQuery->eQType==TK_SELECT ){
-    xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery);
-    xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
-    xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery);
-    xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery);
-    xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery);
-    xjd1ExprListInit(pQuery->u.simple.pOrderBy, pStmt, pQuery);
-    xjd1ExprInit(pQuery->u.simple.pLimit, pStmt, pQuery);
-    xjd1ExprInit(pQuery->u.simple.pOffset, pStmt, pQuery);
+    rc = xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery);
+    if( !rc ) rc = xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pOrderBy, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pLimit, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pOffset, pStmt, pQuery);
   }else{
-    xjd1QueryInit(pQuery->u.compound.pLeft, pStmt, pOuter);
-    xjd1QueryInit(pQuery->u.compound.pRight, pStmt, pOuter);
+    rc = xjd1QueryInit(pQuery->u.compound.pLeft, pStmt, pOuter);
+    if( !rc ) rc = xjd1QueryInit(pQuery->u.compound.pRight, pStmt, pOuter);
   }
-  return XJD1_OK;
+  return rc;
 }
 
 /*

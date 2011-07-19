@@ -53,4 +53,18 @@ SELECT c1.i FROM c1 ORDER BY c1 ASC LIMIT 3 OFFSET 3;
 SELECT c1.i FROM c1 LIMIT 3 OFFSET 3;
 .result 15 17 3
 
+.testcase 9
+SELECT length("hello world");
+SELECT length(11);
+SELECT length(true);
+SELECT length(false);
+SELECT length(null);
+.result 11 2 4 5 4
+
+-- .testcase 10
+-- SELECT xyz("hello world");
+-- .result ERROR
+
+
+
 
