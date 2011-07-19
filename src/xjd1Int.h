@@ -258,6 +258,8 @@ struct Query {
     } simple;
   } u;
 
+  int bStarted;                   /* Set to true after first Step() */
+  int nLimit;                     /* Stop after returning this many more rows */
   int bUseResultList;             /* True to read results from Query.result */
   ResultList result;              /* List of query results in sorted order */
 };

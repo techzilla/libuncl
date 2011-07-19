@@ -173,6 +173,7 @@ int xjd1QueryRewind(Query *p){
   if( p->eQType==TK_SELECT ){
     xjd1DataSrcRewind(p->u.simple.pFrom);
     p->bUseResultList = 0;
+    p->bStarted = 0;
     clearResultList(&p->result);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
@@ -182,8 +183,16 @@ int xjd1QueryRewind(Query *p){
   return XJD1_OK;
 }
 
+/*
+** Advance to the next row of the TK_SELECT query passed as the first 
+** argument, disregarding any ORDER BY, OFFSET or LIMIT clause.
+**
+** Return XJD1_ROW if there is such a row, or XJD1_EOF if there is not. Or 
+** return an error code if an error occurs.
+*/
 static int selectStepUnordered(Query *p){
   int rc;                         /* Return code */
+  assert( p->eQType==TK_SELECT );
   do{
     rc = xjd1DataSrcStep(p->u.simple.pFrom);
   }while(
@@ -194,53 +203,108 @@ static int selectStepUnordered(Query *p){
 }
 
 /*
+** Advance to the next row of the TK_SELECT query passed as the first 
+** argument, disregarding any OFFSET or LIMIT clause.
+**
+** Return XJD1_ROW if there is such a row, or XJD1_EOF if there is not. Or 
+** return an error code if an error occurs.
+*/
+static int selectStepOrdered(Query *p){
+  int rc;
+
+  if( p->u.simple.pOrderBy ){
+    /* There is an ORDER BY clause. */
+    if( p->bUseResultList==0 ){
+      int nKey = p->u.simple.pOrderBy->nEItem + 1;
+      ExprList *pOrderBy = p->u.simple.pOrderBy;
+      Pool *pPool;
+      JsonNode **apKey;
+
+      p->result.nKey = nKey;
+      pPool = p->result.pPool = xjd1PoolNew();
+      if( !pPool ) return XJD1_NOMEM;
+      apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
+      if( !apKey ) return XJD1_NOMEM;
+
+      while( XJD1_ROW==(rc = selectStepUnordered(p) ) ){
+        int i;
+        for(i=0; i<pOrderBy->nEItem; i++){
+          apKey[i] = xjd1ExprEval(pOrderBy->apEItem[i].pExpr);
+        }
+        apKey[i] = xjd1QueryDoc(p, 0);
+
+        rc = addToResultList(&p->result, apKey);
+        if( rc!=XJD1_OK ) break;
+      }
+      if( rc!=XJD1_DONE ) return rc;
+
+      sortResultList(&p->result, p->u.simple.pOrderBy);
+      p->bUseResultList = 1;
+    }else{
+      popResultList(&p->result);
+    }
+
+    rc = p->result.pItem ? XJD1_ROW : XJD1_DONE;
+  }else{
+    rc = selectStepUnordered(p);
+  }
+
+  return rc;
+}
+
+/*
 ** Advance a query to the next row.  Return XDJ1_DONE if there is no
 ** next row, or XJD1_ROW if the step was successful.
 */
 int xjd1QueryStep(Query *p){
-  int rc;
+  int rc = XJD1_ROW;
   if( p==0 ) return XJD1_DONE;
   if( p->eQType==TK_SELECT ){
 
-    if( p->u.simple.pOrderBy ){
-      /* There is an ORDER BY clause. */
-      if( p->bUseResultList==0 ){
-        int nKey = p->u.simple.pOrderBy->nEItem + 1;
-        ExprList *pOrderBy = p->u.simple.pOrderBy;
-        Pool *pPool;
-        JsonNode **apKey;
+    /* Calculate the values, if any, of the LIMIT and OFFSET clauses.
+    **
+    ** TBD: Should this throw an exception if the result of evaluating
+    ** either of these clauses cannot be converted to a number?
+    */
+    if( p->bStarted==0 ){
+      if( p->u.simple.pOffset ){
+        double rOffset;
+        JsonNode *pOffset;
 
-        p->result.nKey = nKey;
-        pPool = p->result.pPool = xjd1PoolNew();
-        if( !pPool ) return XJD1_NOMEM;
-        apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
-        if( !apKey ) return XJD1_NOMEM;
-
-        while( XJD1_ROW==(rc = selectStepUnordered(p) ) ){
-          int i;
-          for(i=0; i<pOrderBy->nEItem; i++){
-            apKey[i] = xjd1ExprEval(pOrderBy->apEItem[i].pExpr);
+        pOffset = xjd1ExprEval(p->u.simple.pOffset);
+        if( 0==xjd1JsonToReal(pOffset, &rOffset) ){
+          int nOffset;
+          for(nOffset=(int)rOffset; nOffset>0; nOffset--){
+            rc = selectStepOrdered(p);
+            if( rc!=XJD1_ROW ) break;
           }
-          apKey[i] = xjd1QueryDoc(p, 0);
-
-          rc = addToResultList(&p->result, apKey);
-          if( rc!=XJD1_OK ) break;
         }
-        if( rc!=XJD1_DONE ) return rc;
-
-        sortResultList(&p->result, p->u.simple.pOrderBy);
-        p->bUseResultList = 1;
-      }else{
-        popResultList(&p->result);
+        xjd1JsonFree(pOffset);
       }
 
-      rc = p->result.pItem ? XJD1_ROW : XJD1_DONE;
-    }else{
-      rc = selectStepUnordered(p);
+      p->nLimit = -1;
+      if( p->u.simple.pLimit ){
+        double rLimit;
+        JsonNode *pLimit;
+
+        pLimit = xjd1ExprEval(p->u.simple.pLimit);
+        if( 0==xjd1JsonToReal(pLimit, &rLimit) ){
+          p->nLimit = (int)rLimit;
+        }
+        xjd1JsonFree(pLimit);
+      }
+      p->bStarted = 1;
     }
 
+    if( rc==XJD1_ROW ){
+      if( p->nLimit==0 ){
+        rc = XJD1_DONE;
+      }else{
+        rc = selectStepOrdered(p);
+        if( p->nLimit>0 ) p->nLimit--;
+      }
+    }
   }else{
-    rc = XJD1_ROW;
     if( !p->u.compound.doneLeft ){
       rc = xjd1QueryStep(p->u.compound.pLeft);
       if( rc==XJD1_DONE ) p->u.compound.doneLeft = 1;
