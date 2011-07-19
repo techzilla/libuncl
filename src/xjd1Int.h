@@ -58,6 +58,8 @@ typedef struct Pool Pool;
 typedef struct Query Query;
 typedef struct String String;
 typedef struct Token Token;
+typedef struct ResultList ResultList;
+typedef struct ResultItem ResultItem;
 
 /* A single allocation from the Pool allocator */
 struct PoolChunk {
@@ -226,6 +228,13 @@ struct Parse {
   String errMsg;                  /* Error message string */
 };
 
+/* A list of sorted results. */
+struct ResultList {
+  Pool *pPool;
+  int nKey;
+  ResultItem *pItem;
+};
+
 /* A query statement */
 struct Query {
   int eQType;                   /* Query type */
@@ -248,6 +257,9 @@ struct Query {
       Expr *pOffset;              /* The OFFSET clause */
     } simple;
   } u;
+
+  int bUseResultList;             /* True to read results from Query.result */
+  ResultList result;              /* List of query results in sorted order */
 };
 
 /* A Data Source is a representation of a term out of the FROM clause. */

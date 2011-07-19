@@ -3,3 +3,5 @@
 .read base01.test
 .read base02.test
 .read base03.test
+.read base04.test
+.read base05.test

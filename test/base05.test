@@ -1,0 +1,39 @@
+-- Further warm body tests. The tests in this file focus on ORDER BY, GROUP BY
+-- and DISTINCT.
+
+.new t1.db
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {i:13, z:"Grape"};
+INSERT INTO c1 VALUE {i:4, z:"Cherry"};
+INSERT INTO c1 VALUE {i:12, z:"Gooseberry"};
+INSERT INTO c1 VALUE {i:15, z:"Guava"};
+INSERT INTO c1 VALUE {i:17, z:"Huckleberry"};
+INSERT INTO c1 VALUE {i:3, z:"Cantaloupe"};
+INSERT INTO c1 VALUE {i:1, z:"Blackberry"};
+INSERT INTO c1 VALUE {i:5, z:"Clementine"};
+INSERT INTO c1 VALUE {i:10, z:"Eggplant"};
+INSERT INTO c1 VALUE {i:16, z:"Honeydew"};
+INSERT INTO c1 VALUE {i:6, z:"Currant"};
+INSERT INTO c1 VALUE {i:7, z:"Damson"};
+INSERT INTO c1 VALUE {i:9, z:"Duran"};
+INSERT INTO c1 VALUE {i:14, z:"Grapefruit"};
+INSERT INTO c1 VALUE {i:2, z:"Blueberry"};
+INSERT INTO c1 VALUE {i:8, z:"Date"};
+INSERT INTO c1 VALUE {i:11, z:"Fig"};
+
+.testcase 1
+SELECT c1.i FROM c1 ORDER BY c1.i;
+.result 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+
+.testcase 2
+SELECT c1.i FROM c1 ORDER BY c1.z;
+.result 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+
+.testcase 3
+SELECT c1.i FROM c1 ORDER BY c1;
+.result 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+
+.testcase 3
+SELECT c1.i FROM c1 ORDER BY c1 DESC;
+.result 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1
+

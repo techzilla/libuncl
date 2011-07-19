@@ -104,7 +104,6 @@ SELECT 45 - 4 FROM c1;
 SELECT 67 - 2 FROM c1;
 .result -6 41 65
 
-
 .testcase 16
 SELECT 1.12;
 SELECT "hello world";
@@ -184,7 +183,8 @@ SELECT x FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
 
 .testcase 26
 SELECT x.one FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
-.result 2
+SELECT x["one"] FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
+.result 2 2
 
 .testcase 27
 SELECT c3 FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;

@@ -29,6 +29,16 @@ Pool *xjd1PoolNew(void){
 }
 
 /*
+** Free a memory allocation pool allocated using xjd1PoolNew().
+*/
+void xjd1PoolDelete(Pool *p){
+  if( p ){
+    xjd1PoolClear(p);
+    free(p);
+  }
+}
+
+/*
 ** Clear a memory allocation pool.  That is to say, free all the
 ** memory allocations associated with the pool, though do not free
 ** the memory pool itself.
