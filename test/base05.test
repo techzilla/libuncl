@@ -65,6 +65,25 @@ SELECT length(null);
 SELECT xyz("hello world");
 .error ERROR no such function: xyz
 
+.testcase 11
+SELECT FROM c1 WHERE count(c1);
+.error ERROR illegal use of aggregate function: count
+
+.testcase 12
+SELECT count(c1) FROM c1;
+SELECT count(c1) FROM c1 WHERE c1.i < 10;
+.result 17 9
+
+.testcase 13
+SELECT {a: count(c1), b : c1} FROM c1;
+.result {"a":17,"b":{"i":11,"z":"Fig"}}
+
+.testcase 14
+SELECT count(x) FROM c1, c1 AS b;
+SELECT count(x) FROM c1, c1 AS b WHERE c1.i<3 && b.i<3;
+SELECT count(x) FROM c1, c1 AS b WHERE c1.i==1;
+.result 289 4 17
+
 
 
 

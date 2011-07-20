@@ -45,6 +45,7 @@
 
 typedef unsigned char u8;
 typedef unsigned short int u16;
+typedef struct Aggregate Aggregate;
 typedef struct Command Command;
 typedef struct DataSrc DataSrc;
 typedef struct Expr Expr;
@@ -162,6 +163,7 @@ struct Expr {
       ExprList *args;          /* List of arguments */
       Function *pFunction;     /* Function object */
       JsonNode **apArg;        /* Array to martial function arguments in */
+      void *pAggCtx;           /* Context for aggregate functions */
     } func;
     struct {                /* Subqueries.  eClass=EXPR_Q */
       Query *p;                /* The subquery */
@@ -240,6 +242,16 @@ struct ResultList {
   ResultItem *pItem;
 };
 
+struct Aggregate {
+  int eAction;                    /* One of XJD1_AGG_STEP or XJD1_AGG_FINAL */
+  int nNode;                      /* Size of apNode array */
+  JsonNode **apNode;              /* Cache of datasource values */
+  int nExpr;                      /* Number of aggregate functions */
+  Expr **apExpr;                  /* Array of aggregate functions */
+};
+#define XJD1_AGG_STEP  0
+#define XJD1_AGG_FINAL 1
+
 /* A query statement */
 struct Query {
   int eQType;                   /* Query type */
@@ -263,6 +275,9 @@ struct Query {
     } simple;
   } u;
 
+  Aggregate *pAgg;              /* Aggregation info. NULL for non-aggregates */
+
+  int bDone;                      /* Set to true after query is finished */
   int bStarted;                   /* Set to true after first Step() */
   int nLimit;                     /* Stop after returning this many more rows */
   int bUseResultList;             /* True to read results from Query.result */
@@ -278,6 +293,7 @@ struct DataSrc {
   int isOwner;              /* True if this DataSrc owns the pOut line */
   union {
     struct {                /* For a join.  eDSType==TK_COMMA */
+      int bStart;              /* True if has already started */
       DataSrc *pLeft;          /* Data source on the left */
       DataSrc *pRight;         /* Data source on the right */
     } join;
@@ -348,14 +364,18 @@ int xjd1DataSrcInit(DataSrc*,Query*);
 int xjd1DataSrcRewind(DataSrc*);
 int xjd1DataSrcStep(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);
+int xjd1DataSrcCount(DataSrc*);
 JsonNode *xjd1DataSrcDoc(DataSrc*, const char*);
+int xjd1DataSrcCount(DataSrc *);
+JsonNode *xjd1DataSrcCacheRead(DataSrc *, JsonNode **, const char *zDocname);
+void xjd1DataSrcCacheSave(DataSrc *, JsonNode **);
 
 /******************************** delete.c ***********************************/
 int xjd1DeleteStep(xjd1_stmt*);
 
 /******************************** expr.c *************************************/
-int xjd1ExprInit(Expr*, xjd1_stmt*, Query*);
-int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*);
+int xjd1ExprInit(Expr*, xjd1_stmt*, Query*, int);
+int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*, int);
 JsonNode *xjd1ExprEval(Expr*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
@@ -435,8 +455,12 @@ void xjd1TraceExprList(String*,int, const ExprList*);
 int xjd1UpdateStep(xjd1_stmt*);
 
 /******************************** func.c *************************************/
-int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt);
-void xjd1FunctionClose(Expr *p);
+int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk);
 JsonNode *xjd1FunctionEval(Expr *p);
+void xjd1FunctionClose(Expr *p);
+
+int xjd1AggregateInit(xjd1_stmt *, Query *, Expr *);
+int xjd1AggregateStep(Expr *p);
+void xjd1AggregateClear(Query *);
 
 #endif /* _XJD1INT_H */

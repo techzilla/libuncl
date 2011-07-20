@@ -58,10 +58,20 @@ int xjd1DataSrcStep(DataSrc *p){
   if( p==0 ) return XJD1_DONE;
   switch( p->eDSType ){
     case TK_COMMA: {
+
+      if( p->u.join.bStart==0 ){
+        p->u.join.bStart = 1;
+        rc = xjd1DataSrcStep(p->u.join.pLeft);
+        if( rc!=XJD1_ROW ) break;
+      }
+
       rc = xjd1DataSrcStep(p->u.join.pRight);
       if( rc==XJD1_DONE ){
-        xjd1DataSrcRewind(p->u.join.pRight);
         rc = xjd1DataSrcStep(p->u.join.pLeft);
+        if( rc==XJD1_ROW ) {
+          xjd1DataSrcRewind(p->u.join.pRight);
+          rc = xjd1DataSrcStep(p->u.join.pRight);
+        }
       }
       break;
     }
@@ -137,15 +147,15 @@ JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
 }
 
 /*
-** Rewind a data source so that it is pointing at the first row.
-** Return XJD1_DONE if the data source is empty and XJD1_ROW if
-** the rewind results in a row of content being available.
+** Rewind a data source so that the next call to DataSrcStep() will cause
+** it to point to the first row.
 */
 int xjd1DataSrcRewind(DataSrc *p){
   if( p==0 ) return XJD1_DONE;
   xjd1JsonFree(p->pValue);  p->pValue = 0;
   switch( p->eDSType ){
     case TK_COMMA: {
+      p->u.join.bStart = 0;
       xjd1DataSrcRewind(p->u.join.pLeft);
       xjd1DataSrcRewind(p->u.join.pRight);
       break;
@@ -156,11 +166,11 @@ int xjd1DataSrcRewind(DataSrc *p){
     }
     case TK_ID: {
       sqlite3_reset(p->u.tab.pStmt);
-      return xjd1DataSrcStep(p);
+      break;
     }
     case TK_NULL: {
       p->u.null.isDone = 0;
-      return xjd1DataSrcStep(p);
+      break;
     }
   }
   return XJD1_DONE;
@@ -180,3 +190,58 @@ int xjd1DataSrcClose(DataSrc *p){
   }
   return XJD1_OK;
 }
+
+int xjd1DataSrcCount(DataSrc *p){
+  int n = 1;
+  if( p->eDSType==TK_COMMA ){
+    n = xjd1DataSrcCount(p->u.join.pLeft) + xjd1DataSrcCount(p->u.join.pRight); 
+  }
+  return n;
+}
+
+static void cacheSaveRecursive(DataSrc *p, JsonNode ***papNode){
+  if( p->eDSType==TK_COMMA ){
+    cacheSaveRecursive(p->u.join.pLeft, papNode);
+    cacheSaveRecursive(p->u.join.pRight, papNode);
+  }else{
+    xjd1JsonFree(**papNode);
+    **papNode = xjd1JsonRef(p->pValue);
+    (*papNode)++;
+  }
+}
+
+void xjd1DataSrcCacheSave(DataSrc *p, JsonNode **apNode){
+  JsonNode **pp = apNode;
+  cacheSaveRecursive(p, &pp);
+}
+
+static JsonNode *cacheReadRecursive(
+  DataSrc *p, 
+  JsonNode ***papNode, 
+  const char *zDocname
+){
+  JsonNode *pRet = 0;
+  if( p->eDSType==TK_COMMA ){
+    pRet = cacheReadRecursive(p->u.join.pLeft, papNode, zDocname);
+    if( !pRet ) pRet = cacheReadRecursive(p->u.join.pRight, papNode, zDocname);
+  }else{
+    if( zDocname==0 
+     || (p->zAs && 0==strcmp(zDocname, p->zAs))
+     || (p->zAs==0 && p->eDSType==TK_ID && strcmp(p->u.tab.zName, zDocname)==0)
+    ){
+      pRet = xjd1JsonRef(**papNode);
+    }
+    (*papNode)++;
+  }
+  return pRet;
+}
+
+JsonNode *xjd1DataSrcCacheRead(
+  DataSrc *p,                     /* The data-source */
+  JsonNode **apNode,              /* Array of cached values */
+  const char *zDocname            /* The document name to search for */
+){
+  JsonNode **pp = apNode;
+  return cacheReadRecursive(p, &pp, zDocname);
+}
+

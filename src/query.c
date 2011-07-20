@@ -151,14 +151,17 @@ int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
   pQuery->pStmt = pStmt;
   pQuery->pOuter = pOuter;
   if( pQuery->eQType==TK_SELECT ){
-    rc = xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery);
+    rc = xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery, 1);
     if( !rc ) rc = xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery);
-    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery);
-    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pOrderBy, pStmt, pQuery);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pLimit, pStmt, pQuery);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pOffset, pStmt, pQuery);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery, 0);
+    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery,0);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery, 1);
+    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pOrderBy, pStmt, pQuery,1);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pLimit, pStmt, pQuery, 0);
+    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pOffset, pStmt, pQuery, 0);
+    if( !rc && pQuery->u.simple.pGroupBy ){ 
+      rc = xjd1AggregateInit(pStmt, pQuery, 0);
+    }
   }else{
     rc = xjd1QueryInit(pQuery->u.compound.pLeft, pStmt, pOuter);
     if( !rc ) rc = xjd1QueryInit(pQuery->u.compound.pRight, pStmt, pOuter);
@@ -175,7 +178,9 @@ int xjd1QueryRewind(Query *p){
     xjd1DataSrcRewind(p->u.simple.pFrom);
     p->bUseResultList = 0;
     p->bStarted = 0;
+    p->bDone = 0;
     clearResultList(&p->result);
+    xjd1AggregateClear(p);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
     p->u.compound.doneLeft = 0;
@@ -188,8 +193,8 @@ int xjd1QueryRewind(Query *p){
 ** Advance to the next row of the TK_SELECT query passed as the first 
 ** argument, disregarding any ORDER BY, OFFSET or LIMIT clause.
 **
-** Return XJD1_ROW if there is such a row, or XJD1_EOF if there is not. Or 
-** return an error code if an error occurs.
+** Return XJD1_ROW if there is such a row, or XJD1_DONE at EOF. Or return 
+** an error code if an error occurs.
 */
 static int selectStepUnordered(Query *p){
   int rc;                         /* Return code */
@@ -213,7 +218,36 @@ static int selectStepUnordered(Query *p){
 static int selectStepOrdered(Query *p){
   int rc;
 
-  if( p->u.simple.pOrderBy ){
+  if( p->pAgg ){
+    Aggregate *pAgg = p->pAgg;
+
+    if( p->u.simple.pGroupBy==0 ){
+
+      /* An aggregate query with no GROUP BY clause. If there is no GROUP BY,
+      ** then exactly one row is returned, which makes ORDER BY and DISTINCT 
+      ** no-ops. And it is not possible to have a HAVING clause without a
+      ** GROUP BY, so no need to worry about that either. 
+      */
+      assert( p->u.simple.pHaving==0 );
+      
+      pAgg->eAction = XJD1_AGG_STEP;
+      while( XJD1_ROW==(rc = selectStepUnordered(p) ) ){
+        int i;
+        for(i=0; i<pAgg->nExpr; i++){
+          rc = xjd1AggregateStep(pAgg->apExpr[i]);
+          if( rc!=XJD1_OK ) return rc;
+        }
+        xjd1DataSrcCacheSave(p->u.simple.pFrom, pAgg->apNode);
+      }
+      if( rc!=XJD1_DONE ) return rc;
+      pAgg->eAction = XJD1_AGG_FINAL;
+      p->bDone = 1;
+      rc = XJD1_ROW;
+
+    }else{
+      assert(0);
+    }
+  }else if( p->u.simple.pOrderBy ){
     /* There is an ORDER BY clause. */
     if( p->bUseResultList==0 ){
       int nKey = p->u.simple.pOrderBy->nEItem + 1;
@@ -259,7 +293,7 @@ static int selectStepOrdered(Query *p){
 */
 int xjd1QueryStep(Query *p){
   int rc = XJD1_ROW;
-  if( p==0 ) return XJD1_DONE;
+  if( p==0 || p->bDone ) return XJD1_DONE;
   if( p->eQType==TK_SELECT ){
 
     /* Calculate the values, if any, of the LIMIT and OFFSET clauses.
@@ -332,9 +366,12 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
         pOut = xjd1JsonRef(p->result.pItem->apKey[p->result.nKey-1]);
       }else if( zDocName==0 && p->u.simple.pRes ){
         pOut = xjd1ExprEval(p->u.simple.pRes);
+      }else if( p->pAgg && p->pAgg->eAction==XJD1_AGG_FINAL ){
+        pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom,p->pAgg->apNode,zDocName);
       }else{
         pOut = xjd1DataSrcDoc(p->u.simple.pFrom, zDocName);
       }
+
     }else if( !p->u.compound.doneLeft ){
       pOut = xjd1QueryDoc(p->u.compound.pLeft, zDocName);
     }else{

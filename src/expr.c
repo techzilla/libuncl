@@ -116,9 +116,11 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
       rc = xjd1QueryInit(p->u.subq.p, pAction->pStmt, pAction->pQuery);
       break;
 
-    case XJD1_EXPR_FUNC:
-      rc = xjd1FunctionInit(p, pAction->pStmt);
+    case XJD1_EXPR_FUNC: {
+      int bAggOk = *(int *)pAction->pArg;
+      rc = xjd1FunctionInit(p, pAction->pStmt, pAction->pQuery, bAggOk);
       break;
+    }
 
     default:
       break;
@@ -132,12 +134,18 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
 ** Initialize an expression in preparation for evaluation of a
 ** statement.
 */
-int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
+int xjd1ExprInit(
+  Expr *p,                        /* Expression to initialize */
+  xjd1_stmt *pStmt,               /* Statement expression belongs to */
+  Query *pQuery,                  /* Query expression belongs to (or NULL) */
+  int bAggOk                      /* True if an aggregate function is Ok */
+){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
   sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
+  sAction.pArg = (void *)&bAggOk;
   return walkExpr(p, &sAction);
 }
 
@@ -145,12 +153,14 @@ int xjd1ExprInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery){
 ** Initialize a list of expression in preparation for evaluation of a
 ** statement.
 */
-int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery){
+int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
   WalkAction sAction;
+  assert( bAggOk==0 || pQuery );
   memset(&sAction, 0, sizeof(sAction));
   sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
+  sAction.pArg = (int *)&bAggOk;
   return walkExprList(p, &sAction);
 }
 
