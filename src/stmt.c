@@ -29,6 +29,7 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   Command *pCmd;
   int rc;
 
+  if( pN==0 ) pN = &dummy;
   *pN = strlen(zStmt);
   *ppNew = p = malloc( sizeof(*p) );
   if( p==0 ) return XJD1_NOMEM;
@@ -37,9 +38,13 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
   p->pNext = pConn->pStmt;
   pConn->pStmt = p;
   p->zCode = xjd1PoolDup(&p->sPool, zStmt, -1);
-  if( pN==0 ) pN = &dummy;
+  xjd1StringInit(&p->retValue, &p->sPool, 0);
+  xjd1StringInit(&p->errMsg, &p->sPool, 0);
+
   rc = xjd1RunParser(pConn, p, p->zCode, pN);
   pCmd = p->pCmd;
+  assert( rc==XJD1_OK || (pCmd==0 && pConn->errCode==rc) );
+
   if( pCmd ){
     switch( pCmd->eCmdType ){
       case TK_SELECT: {
@@ -61,10 +66,16 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
         break;
       }
     }
+
+    if( p->errCode ){
+      xjd1Error(pConn, p->errCode, "%s", p->errMsg.zBuf);
+      rc = p->errCode;
+    }else if( rc!=XJD1_OK ){
+      xjd1Error(pConn, rc, 0);
+    }
   }
 
   if( rc!=XJD1_OK ){
-    xjd1Error(pConn, rc, "");
     xjd1_stmt_delete(p);
     *ppNew = 0;
   }
@@ -300,3 +311,12 @@ JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
   }
   return pRes;
 }
+
+void xjd1StmtError(xjd1_stmt *pStmt, int errCode, const char *zFormat, ...){
+  va_list ap;
+  pStmt->errCode = errCode;
+  va_start(ap, zFormat);
+  xjd1StringVAppendF(&pStmt->errMsg, zFormat, ap);
+  va_end(ap);
+}
+

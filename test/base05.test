@@ -61,9 +61,9 @@ SELECT length(false);
 SELECT length(null);
 .result 11 2 4 5 4
 
--- .testcase 10
--- SELECT xyz("hello world");
--- .result ERROR
+.testcase 10
+SELECT xyz("hello world");
+.error ERROR no such function: xyz
 
 
 

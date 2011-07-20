@@ -115,7 +115,9 @@ struct xjd1_stmt {
   JsonNode *pDoc;                   /* Current document */
   int okValue;                      /* True if retValue is valid */
   String retValue;                  /* String rendering of return value */
-  char *zErrMsg;                    /* Error message */
+
+  int errCode;                      /* Error code */
+  String errMsg;                    /* Error message */
 };
 
 /* A token into to the parser */
@@ -392,6 +394,7 @@ JsonNode *xjd1QueryDoc(Query*, const char*);
 
 /******************************** stmt.c *************************************/
 JsonNode *xjd1StmtDoc(xjd1_stmt*, const char*);
+void xjd1StmtError(xjd1_stmt *,int,const char*,...);
 
 /******************************** string.c ***********************************/
 int xjd1Strlen30(const char *);
@@ -418,6 +421,7 @@ extern const unsigned char xjd1CtypeMap[];
 #define xjd1Isxdigit(x)  (xjd1CtypeMap[(unsigned char)(x)]&0x08)
 #define xjd1Isident(x)   (xjd1CtypeMap[(unsigned char)(x)]&0x46)
 int xjd1RunParser(xjd1*, xjd1_stmt*, const char*, int*);
+void xjd1ParseError(Parse *, int, const char *, ...);
 
 /******************************** trace.c ************************************/
 const char *xjd1TokenName(int);

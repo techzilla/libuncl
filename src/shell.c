@@ -103,6 +103,7 @@ struct Shell {
   FILE *pIn;           /* Input file */
   int isTTY;           /* True if pIn is a TTY */
   int shellFlags;      /* Flag settings */
+  int testErrcode;     /* Test case error code */
   String testOut;      /* Output from a test case */
   char zModule[50];    /* Mame of current test module */
   char zTestCase[50];  /* Name of current testcase */
@@ -189,6 +190,7 @@ static int shellTestcase(Shell *p, int argc, char **argv){
     memcpy(p->zTestCase, argv[1], n);
     p->zTestCase[n] = 0;
     xjd1StringTruncate(&p->testOut);
+    p->testErrcode = XJD1_OK;
     p->shellFlags |= SHELL_TEST_MODE;
   }
   return 0;
@@ -397,6 +399,15 @@ static int shellPuts(Shell *p, int argc, char **argv){
   return 0;
 }
 
+static void checkForTestError(Shell *p){
+  if( (p->shellFlags & SHELL_TEST_MODE) && p->testErrcode ){
+    fprintf(stderr, "%s:%d: ERROR: %s\n", p->zFile, p->nLine, p->testOut.zBuf);
+    xjd1StringTruncate(&p->testOut);
+    p->testErrcode = XJD1_OK;
+    p->nErr++;
+  }
+}
+
 /*
 ** Process a command intended for this shell - not for the database.
 **
@@ -450,6 +461,13 @@ static int processMetaCommand(Shell *p){
   }else{
     azArg[1] = 0;
     nArg = 1;
+  }
+
+  if( strcmp(azArg[0], "error") ){
+    checkForTestError(p);
+  }else{
+    p->testErrcode = XJD1_OK;
+    azArg[0] = "result";
   }
 
   /* Find the command */
@@ -517,13 +535,15 @@ static void processOneStatement(Shell *p, const char *zCmd){
     }while( rc==XJD1_ROW );
     xjd1_stmt_delete(pStmt);
   }else{
-    if( p->zTestCase[0] ){
+    if( p->shellFlags & SHELL_TEST_MODE ){
       appendTestOut(p, xjd1_errcode_name(p->pDb), -1);
       appendTestOut(p, xjd1_errmsg(p->pDb), -1);
+      p->testErrcode = rc;
+    }else{
+      fprintf(stderr, "%s:%d: ERROR: %s\n",
+              p->zFile, p->nLine, xjd1_errmsg(p->pDb));
+      p->nErr++;
     }
-    fprintf(stderr, "%s:%d: ERROR: %s\n",
-            p->zFile, p->nLine, xjd1_errmsg(p->pDb));
-    p->nErr++;
   }
   if( once ) printf("---------------------------------\n");
 }
@@ -534,6 +554,9 @@ static void processOneStatement(Shell *p, const char *zCmd){
 static void processScript(Shell *p){
   char *z, c;
   int i;
+
+  checkForTestError(p);
+
   if( p->pDb==0 ){
     if( p->shellFlags & SHELL_ECHO ) printf("%s", xjd1StringText(&p->inBuf));
     xjd1StringTruncate(&p->inBuf);
@@ -627,7 +650,6 @@ static void processOneFile(
   p->pIn = savedState.pIn;
   p->isTTY = savedState.isTTY;
 }
-
 
 int main(int argc, char **argv){
   int i;

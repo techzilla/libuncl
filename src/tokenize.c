@@ -398,7 +398,6 @@ int xjd1RunParser(
   void *pEngine;
   int lastTokenParsed = 0;
   int nToken = 0;
-  int nErr = 0;
   extern void *xjd1ParserAlloc(void*(*)(size_t));
   extern void xjd1ParserFree(void*, void(*)(void*));
   extern void xjd1Parser(void*,int,Token,Parse*);
@@ -409,10 +408,14 @@ int xjd1RunParser(
     xjd1ParserTrace(stdout, "parser> ");
   }
 #endif
-  *pN = 0;
+
   pEngine = xjd1ParserAlloc(malloc);
-  if( pEngine==0 ) return XJD1_NOMEM;
   memset(&sParse, 0, sizeof(sParse));
+  if( pEngine==0 ){
+    sParse.errCode = XJD1_NOMEM;
+    goto abort_parse;
+  }
+
   sParse.pConn = pConn;
   sParse.pPool = &pStmt->sPool;
   xjd1StringInit(&sParse.errMsg, &pStmt->sPool, 0);
@@ -426,11 +429,9 @@ int xjd1RunParser(
         break;
       }
       case TK_ILLEGAL: {
-        xjd1StringTruncate(&sParse.errMsg);
-        xjd1StringAppendF(&sParse.errMsg,
-             "unrecognized token: \"%.*s\"",
-             sParse.sTok.n, sParse.sTok.z);
-        nErr++;
+        xjd1ParseError(&sParse, XJD1_ERROR,
+            "unrecognized token: \"%.*s\"", sParse.sTok.n, sParse.sTok.z
+        );
         goto abort_parse;
       }
       default: {
@@ -442,10 +443,9 @@ int xjd1RunParser(
       }
     }
   }
+
 abort_parse:
-  *pN = i;
-  if( sParse.errCode ) nErr++;
-  if( nErr==0 && sParse.errCode==XJD1_OK && nToken>0 ){
+  if( sParse.errCode==XJD1_OK && nToken>0 ){
     if( lastTokenParsed!=TK_SEMI ){
       sParse.sTok.z = ";";
       sParse.sTok.n = 1;
@@ -453,8 +453,25 @@ abort_parse:
     }
     xjd1Parser(pEngine, 0, sParse.sTok, &sParse);
   }
-  pStmt->pCmd = sParse.pCmd;
   xjd1ParserFree(pEngine, free);
-  return nErr==0 && sParse.errCode==0
-       && (sParse.pCmd!=0 || nToken==0) ? XJD1_OK : XJD1_ERROR;
+
+  if( sParse.errCode!=XJD1_OK ){
+    xjd1Error(pConn, sParse.errCode, "%s", sParse.errMsg.zBuf);
+  }
+  pStmt->pCmd = sParse.pCmd;
+  *pN = i;
+
+  return sParse.errCode;
+}
+
+/*
+** Set the error code and message for the Parse object passed as the
+** first argument.
+*/
+void xjd1ParseError(Parse *p, int errCode, const char *zFormat, ...){
+  va_list ap;
+  p->errCode = errCode;
+  va_start(ap, zFormat);
+  xjd1StringVAppendF(&p->errMsg, zFormat, ap);
+  va_end(ap);
 }

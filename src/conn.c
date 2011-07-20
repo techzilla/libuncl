@@ -85,6 +85,7 @@ const char *xjd1_errmsg(xjd1 *pConn){
   if( pConn==0 ) return "out of memory";
   return xjd1StringText(&pConn->errMsg);
 }
+
 const char *xjd1_errcode_name(xjd1 *pConn){
   const char *z = "???";
   switch( xjd1_errcode(pConn) ){
@@ -120,7 +121,16 @@ PRIVATE void xjd1Error(xjd1 *pConn, int errCode, const char *zFormat, ...){
     xjd1StringAppend(&pConn->errMsg, "\n", 1);
   }
   pConn->errCode = errCode;
-  va_start(ap, zFormat);
-  xjd1StringVAppendF(&pConn->errMsg, zFormat, ap);
-  va_end(ap);
+  if( zFormat ){
+    va_start(ap, zFormat);
+    xjd1StringVAppendF(&pConn->errMsg, zFormat, ap);
+    va_end(ap);
+  }else{
+    const char *z;
+    switch( errCode ){
+      case XJD1_NOMEM: z = "out of memory";          break;
+      default:         z = xjd1_errcode_name(pConn); break;
+    }
+    xjd1StringAppend(&pConn->errMsg, z, -1);
+  }
 }

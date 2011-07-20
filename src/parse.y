@@ -35,9 +35,9 @@
 
 // Handle syntax errors.
 %syntax_error {
-  p->errCode = XJD1_SYNTAX;
-  xjd1Error(p->pConn, XJD1_SYNTAX, "syntax error near \"%.*s\"",
-            p->sTok.n, p->sTok.z);
+  xjd1ParseError(p, XJD1_SYNTAX,
+      "syntax error near \"%.*s\"", p->sTok.n, p->sTok.z
+  );
 }
 
 // The following text is included near the beginning of the C source

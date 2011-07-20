@@ -53,6 +53,12 @@ static JsonNode *xLength(int nArg, JsonNode **apArg){
   return pRet;
 }
 
+/*
+** The expression passed as the first argument is of type TK_FUNCTION.
+** This function initializes the expression object. If successful, XJD1_OK
+** is returned. Otherwise, an error code is returned and an error left in
+** the pStmt statement handle.
+*/
 int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt){
   char *zName;
   int nArg;
@@ -62,6 +68,8 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt){
   static Function aFunc[] = {
     { 1, "length", xLength },
   };
+
+  assert( p->eType==TK_FUNCTION && p->eClass==XJD1_EXPR_FUNC );
 
   zName = p->u.func.zFName;
   nArg = p->u.func.args->nEItem;
@@ -75,6 +83,7 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt){
   }
 
   if( !p->u.func.pFunction ){
+    xjd1StmtError(pStmt, XJD1_ERROR, "no such function: %s", zName);
     return XJD1_ERROR;
   }
 
