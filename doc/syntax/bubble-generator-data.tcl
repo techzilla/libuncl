@@ -36,7 +36,7 @@ set all_graphs {
 
   select-core {
      stack
-       {line SELECT {opt DISTINCT} {opt expr}} 
+       {line SELECT {opt DISTINCT} {opt expr} {opt {line AS /name}}} 
        {optx FROM {loop { line data-source {opt AS /name} } ,}}
        {optx WHERE expr}
        {optx GROUP BY {loop expr ,} {optx HAVING expr}}
