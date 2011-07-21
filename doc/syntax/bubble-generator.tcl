@@ -650,6 +650,7 @@ proc draw_all_graphs {} {
   puts $f "<title>UnQL Syntax Summary</title><nowiki>"
   foreach {name graph} $all_graphs {
     if {[regexp {^X-} $name]} continue
+    puts $f "<a name=\"$name\"></a>"
     puts $f "<h3>$name:</h3>"
     puts $f "<img src=\"$name.gif\">"
     draw_graph $name $graph 0

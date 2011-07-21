@@ -1,33 +1,49 @@
 <title>UnQL Syntax Summary</title><nowiki>
+<a name="unql-stmt"></a>
 <h3>unql-stmt:</h3>
 <img src="unql-stmt.gif">
+<a name="select-stmt"></a>
 <h3>select-stmt:</h3>
 <img src="select-stmt.gif">
+<a name="select-core"></a>
 <h3>select-core:</h3>
 <img src="select-core.gif">
+<a name="data-source"></a>
 <h3>data-source:</h3>
 <img src="data-source.gif">
+<a name="compound-operator"></a>
 <h3>compound-operator:</h3>
 <img src="compound-operator.gif">
+<a name="create-collection-stmt"></a>
 <h3>create-collection-stmt:</h3>
 <img src="create-collection-stmt.gif">
+<a name="drop-collection-stmt"></a>
 <h3>drop-collection-stmt:</h3>
 <img src="drop-collection-stmt.gif">
+<a name="insert-stmt"></a>
 <h3>insert-stmt:</h3>
 <img src="insert-stmt.gif">
+<a name="update-stmt"></a>
 <h3>update-stmt:</h3>
 <img src="update-stmt.gif">
+<a name="delete-stmt"></a>
 <h3>delete-stmt:</h3>
 <img src="delete-stmt.gif">
+<a name="property"></a>
 <h3>property:</h3>
 <img src="property.gif">
+<a name="expr"></a>
 <h3>expr:</h3>
 <img src="expr.gif">
+<a name="begin-stmt"></a>
 <h3>begin-stmt:</h3>
 <img src="begin-stmt.gif">
+<a name="commit-stmt"></a>
 <h3>commit-stmt:</h3>
 <img src="commit-stmt.gif">
+<a name="rollback-stmt"></a>
 <h3>rollback-stmt:</h3>
 <img src="rollback-stmt.gif">
+<a name="pragma-stmt"></a>
 <h3>pragma-stmt:</h3>
 <img src="pragma-stmt.gif">
