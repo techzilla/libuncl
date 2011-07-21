@@ -36,7 +36,7 @@ set all_graphs {
 
   select-core {
      stack
-       {line SELECT {opt expr}} 
+       {line SELECT {opt DISTINCT} {opt expr}} 
        {optx FROM {loop { line data-source {opt AS /name} } ,}}
        {optx WHERE expr}
        {optx GROUP BY {loop expr ,} {optx HAVING expr}}
@@ -74,6 +74,7 @@ set all_graphs {
 
   insert-stmt {
        line
+          {or {} SYNC ASYNC}
           INSERT INTO /collection-name 
             {or 
                  {line VALUE expr} 
@@ -84,6 +85,7 @@ set all_graphs {
   update-stmt {
      stack {
        line 
+         {or {} SYNC ASYNC}
          UPDATE /collection-name SET {loop {line property = expr} ,}
      } {
        line
@@ -93,7 +95,7 @@ set all_graphs {
   }
 
   delete-stmt {
-    line DELETE FROM /collection-name {optx WHERE expr}
+    line  {or {} SYNC ASYNC} DELETE FROM /collection-name {optx WHERE expr}
   }
 
   property {
@@ -114,13 +116,19 @@ set all_graphs {
       {line "\xA0[\xA0" {loop {line expr} , } "\xA0]\xA0" }
       {line /function-name ( {toploop expr ,} )}
       {line expr binary-operator expr}
+      {line expr ? expr : expr}
       {line unary-operator expr}
       {line ( expr )}
       {line ( select )}
     }
   }
 
-  begin-stmt    { line BEGIN /transaction-name }
+  begin-stmt    { line BEGIN /transaction-name
+     {or {} SERIALIZABLE SNAPSHOT 
+         {line REPEATABLE READS}
+         {line READ COMMITTED}
+         {line READ UNCOMMITTED}}
+  }
   commit-stmt   { line COMMIT /transaction-name }
   rollback-stmt { line ROLLBACK /transaction-name }
 
@@ -133,6 +141,3 @@ set all_graphs {
           }
   }
 }
-
-
-
