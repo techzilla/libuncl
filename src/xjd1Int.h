@@ -43,6 +43,15 @@
 #define TK_STRUCT            106
 #define TK_JVALUE            107
 
+/*
+** A convenience macro for returning the size of an fixed-size array. 
+** For example:
+**
+**     DataType var[N];
+**     assert( ArraySize(var)==N );
+*/
+#define ArraySize(X)    ((int)(sizeof(X)/sizeof(X[0])))
+
 typedef unsigned char u8;
 typedef unsigned short int u16;
 typedef struct Aggregate Aggregate;
@@ -243,14 +252,9 @@ struct ResultList {
 };
 
 struct Aggregate {
-  int eAction;                    /* One of XJD1_AGG_STEP or XJD1_AGG_FINAL */
-  int nNode;                      /* Size of apNode array */
-  JsonNode **apNode;              /* Cache of datasource values */
   int nExpr;                      /* Number of aggregate functions */
   Expr **apExpr;                  /* Array of aggregate functions */
 };
-#define XJD1_AGG_STEP  0
-#define XJD1_AGG_FINAL 1
 
 /* A query statement */
 struct Query {
@@ -275,14 +279,19 @@ struct Query {
     } simple;
   } u;
 
-  Aggregate *pAgg;              /* Aggregation info. NULL for non-aggregates */
+  Aggregate *pAgg;                /* Aggregation info. 0 for non-aggregates */
+  ResultList grouped;             /* Grouped results, for GROUP BY queries */
+  ResultList ordered;             /* Query results in sorted order */
+  int eDocFrom;                   /* XJD1_FROM_* - configures xjd1QueryDoc() */
 
-  int bDone;                      /* Set to true after query is finished */
   int bStarted;                   /* Set to true after first Step() */
   int nLimit;                     /* Stop after returning this many more rows */
-  int bUseResultList;             /* True to read results from Query.result */
-  ResultList result;              /* List of query results in sorted order */
 };
+
+/* Candidate values for Query.eDocFrom */
+#define XJD1_FROM_DATASRC 0
+#define XJD1_FROM_GROUPED 1
+#define XJD1_FROM_ORDERED 2
 
 /* A Data Source is a representation of a term out of the FROM clause. */
 struct DataSrc {
@@ -460,7 +469,7 @@ JsonNode *xjd1FunctionEval(Expr *p);
 void xjd1FunctionClose(Expr *p);
 
 int xjd1AggregateInit(xjd1_stmt *, Query *, Expr *);
-int xjd1AggregateStep(Expr *p);
+int xjd1AggregateStep(Aggregate *);
 void xjd1AggregateClear(Query *);
 
 #endif /* _XJD1INT_H */

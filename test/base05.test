@@ -2,6 +2,7 @@
 -- and DISTINCT.
 
 .new t1.db
+
 CREATE COLLECTION c1;
 INSERT INTO c1 VALUE {i:13, z:"Grape"};
 INSERT INTO c1 VALUE {i:4, z:"Cherry"};
@@ -84,6 +85,26 @@ SELECT count(x) FROM c1, c1 AS b WHERE c1.i<3 && b.i<3;
 SELECT count(x) FROM c1, c1 AS b WHERE c1.i==1;
 .result 289 4 17
 
+.testcase 15
+CREATE COLLECTION c2;
+INSERT INTO c2 VALUE { a:"a", b:1 };
+INSERT INTO c2 VALUE { a:"b", b:2 };
+INSERT INTO c2 VALUE { a:"c", b:1 };
+INSERT INTO c2 VALUE { a:"a", b:3 };
+INSERT INTO c2 VALUE { a:"b", b:1 };
+INSERT INTO c2 VALUE { a:"a", b:2 };
+SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a;
+.result {"x":3,"y":"a"} {"x":2,"y":"b"} {"x":1,"y":"c"}
 
+.testcase 16
+SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a ORDER BY count(c2.b) DESC;
+.result {"x":3,"y":"a"} {"x":2,"y":"b"} {"x":1,"y":"c"}
 
+.testcase 17
+SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a ORDER BY count(c2.b) ASC;
+.result {"x":1,"y":"c"} {"x":2,"y":"b"} {"x":3,"y":"a"} 
+
+.testcase 18
+SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a HAVING count(c2.b)>1;
+.result {"x":3,"y":"a"} {"x":2,"y":"b"} 
 

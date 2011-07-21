@@ -20,8 +20,8 @@
 
 
 struct ResultItem {
-  JsonNode **apKey;               /* List of JSON objects - the sort key */
-  ResultItem *pNext;           /* Next element in list */
+  JsonNode **apKey;               /* Array of JSON objects */
+  ResultItem *pNext;              /* Next element in list */
 };
 
 static int addToResultList(
@@ -49,6 +49,21 @@ static int addToResultList(
   return XJD1_OK;
 }
 
+static int cmpResultItem(ResultItem *p1, ResultItem *p2, ExprList *pEList){
+  int i;
+  int c = 0;
+  for(i=0; i<pEList->nEItem; i++){
+    if( 0!=(c=xjd1JsonCompare(p1->apKey[i], p2->apKey[i])) ) break;
+  }
+  if( c ){
+    char const *zDir = pEList->apEItem[i].zAs;
+    if( zDir && zDir[0]=='D' ){
+      c = c*-1;
+    }
+  }
+  return c;
+}
+
 static ResultItem *mergeResultItems(
   ExprList *pEList,              /* Used for ASC/DESC of each key */
   ResultItem *p1,                /* First list to merge */
@@ -66,18 +81,7 @@ static ResultItem *mergeResultItems(
       *ppNext = p1;
       p1 = 0;
     }else{
-      char const *zDir;
-      int c;
-      int i;
-
-      for(i=0; i<pEList->nEItem; i++){
-        if( 0!=(c=xjd1JsonCompare(p1->apKey[i], p2->apKey[i])) ) break;
-      }
-      zDir = pEList->apEItem[i].zAs;
-      if( zDir && zDir[0]=='D' ){
-        c = c*-1;
-      }
-
+      int c = cmpResultItem(p1, p2, pEList);
       if( c<=0 ){
         *ppNext = p1;
         ppNext = &p1->pNext;
@@ -93,22 +97,19 @@ static ResultItem *mergeResultItems(
   return pRet;
 }
 
-#define N_BUCKET 40
 static void sortResultList(ResultList *pList, ExprList *pEList){
-  int i;
-  ResultItem *aList[40];
-
-  ResultItem *pNext;
+  int i;                          /* Used to iterate through aList[] */
+  ResultItem *aList[40];          /* Array of slots for merge sort */
   ResultItem *pHead;
 
   memset(aList, 0, sizeof(aList));
   pHead = pList->pItem;
 
   while( pHead ){
-    pNext = pHead->pNext;
+    ResultItem *pNext = pHead->pNext;
     pHead->pNext = 0;
     for(i=0; aList[i]; i++){
-      assert( i<N_BUCKET );
+      assert( i<ArraySize(aList) );
       pHead = mergeResultItems(pEList, pHead, aList[i]);
       aList[i] = 0;
     }
@@ -117,7 +118,7 @@ static void sortResultList(ResultList *pList, ExprList *pEList){
   }
 
   pHead = aList[0];
-  for(i=1; i<N_BUCKET; i++){
+  for(i=1; i<ArraySize(aList); i++){
     pHead = mergeResultItems(pEList, pHead, aList[i]);
   }
 
@@ -138,7 +139,7 @@ static void popResultList(ResultList *pList){
 static void clearResultList(ResultList *pList){
   while( pList->pItem ) popResultList(pList);
   xjd1PoolDelete(pList->pPool);
-  pList->pPool = 0;
+  memset(pList, 0, sizeof(ResultList));
 }
 
 /*
@@ -176,10 +177,10 @@ int xjd1QueryRewind(Query *p){
   if( p==0 ) return XJD1_OK;
   if( p->eQType==TK_SELECT ){
     xjd1DataSrcRewind(p->u.simple.pFrom);
-    p->bUseResultList = 0;
+    p->eDocFrom = XJD1_FROM_DATASRC;
     p->bStarted = 0;
-    p->bDone = 0;
-    clearResultList(&p->result);
+    clearResultList(&p->ordered);
+    clearResultList(&p->grouped);
     xjd1AggregateClear(p);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
@@ -196,7 +197,7 @@ int xjd1QueryRewind(Query *p){
 ** Return XJD1_ROW if there is such a row, or XJD1_DONE at EOF. Or return 
 ** an error code if an error occurs.
 */
-static int selectStepUnordered(Query *p){
+static int selectStepWhered(Query *p){
   int rc;                         /* Return code */
   assert( p->eQType==TK_SELECT );
   do{
@@ -208,6 +209,130 @@ static int selectStepUnordered(Query *p){
   return rc;
 }
 
+static int selectStepGrouped(Query *p){
+  int rc;
+
+  if( p->pAgg ){
+    Aggregate *pAgg = p->pAgg;
+    ExprList *pGroupBy = p->u.simple.pGroupBy;
+
+    rc = XJD1_OK;
+    if( pGroupBy==0 ){
+      /* An aggregate query with no GROUP BY clause. If there is no GROUP BY,
+      ** then exactly one row is returned, which makes ORDER BY and DISTINCT 
+      ** no-ops. And it is not possible to have a HAVING clause without a
+      ** GROUP BY, so no need to worry about that either. 
+      */
+      assert( p->u.simple.pHaving==0 );
+
+      if( p->grouped.pPool==0 ){
+        JsonNode **apSrc;
+        int nSrc;
+        Pool *pPool;
+
+        pPool = p->grouped.pPool = xjd1PoolNew();
+        if( !pPool ) return XJD1_NOMEM;
+
+        p->grouped.nKey = nSrc = xjd1DataSrcCount(p->u.simple.pFrom);
+        apSrc = (JsonNode **)xjd1PoolMallocZero(pPool, nSrc*sizeof(JsonNode *));
+        if( !apSrc ) return XJD1_NOMEM;
+
+        /* Call the xStep() of each aggregate in the query for each row 
+        ** matched by the query WHERE clause. */
+        while( rc==XJD1_OK && XJD1_ROW==(rc = selectStepWhered(p) ) ){
+          rc = xjd1AggregateStep(pAgg);
+          xjd1DataSrcCacheSave(p->u.simple.pFrom, apSrc);
+        }
+        if( rc==XJD1_DONE ){
+          rc = addToResultList(&p->grouped, apSrc);
+          if( rc==XJD1_OK ){
+            rc = XJD1_ROW;
+            p->eDocFrom = XJD1_FROM_GROUPED;
+          }
+        }
+      }else{
+        rc = XJD1_DONE;
+      }
+      
+      /* TODO: If this is a top-level query, then xQueryDoc(p, 0) will be
+      ** called exactly once to retrieve the query result. When any 
+      ** aggregate expressions within the query result are evaluated, the 
+      ** xFinal function is evaluated. But this will only work once - if
+      ** xQueryDoc(p, 0) is called more than once it will break. Find out if
+      ** this is a problem!
+      */
+
+    }else{
+
+      /* An aggregate with a GROUP BY clause. There may also be a DISTINCT
+      ** qualifier.
+      **
+      ** Use a ResultList to sort all the rows matched by the WHERE
+      ** clause. The apKey[] array consists of each of the expressions
+      ** in the GROUP BY clause, followed by each document in the FROM
+      ** clause. */
+      do {
+        ResultItem *pItem;
+  
+        if( p->grouped.pPool==0 ){
+          DataSrc *pFrom = p->u.simple.pFrom;
+          JsonNode **apKey;
+          int nByte;
+          Pool *pPool;
+  
+          /* Allocate the memory pool for this ResultList. And apKey. */
+          pPool = p->grouped.pPool = xjd1PoolNew();
+          p->grouped.nKey = pGroupBy->nEItem + xjd1DataSrcCount(pFrom);
+          if( !pPool ) return XJD1_NOMEM;
+          nByte = p->grouped.nKey * sizeof(JsonNode *);
+          apKey = (JsonNode **)xjd1PoolMallocZero(pPool, nByte);
+          if( !apKey ) return XJD1_NOMEM;
+  
+          while( rc==XJD1_OK && XJD1_ROW==(rc = selectStepWhered(p) ) ){
+            int i;
+            for(i=0; i<pGroupBy->nEItem; i++){
+              apKey[i] = xjd1ExprEval(pGroupBy->apEItem[i].pExpr);
+            }
+            xjd1DataSrcCacheSave(pFrom, &apKey[i]);
+            rc = addToResultList(&p->grouped, apKey);
+            memset(apKey, 0, nByte);
+          }
+          if( rc!=XJD1_DONE ) return rc;
+          sortResultList(&p->grouped, pGroupBy);
+        }else{
+          popResultList(&p->grouped);
+        }
+  
+        p->eDocFrom = XJD1_FROM_GROUPED;
+        pItem = p->grouped.pItem;
+        if( pItem==0 ){
+          rc = XJD1_DONE;
+        }else{
+          while( 1 ){
+            ResultItem *pNext = pItem->pNext;
+            rc = xjd1AggregateStep(pAgg);
+            if( !pNext || cmpResultItem(pItem, pNext, pGroupBy) ){
+              break;
+            }
+            popResultList(&p->grouped);
+            pItem = p->grouped.pItem;
+          }
+          rc = XJD1_ROW;
+        }
+
+      }while( rc==XJD1_ROW 
+           && p->u.simple.pHaving && !xjd1ExprTrue(p->u.simple.pHaving)
+      );
+    }
+
+  }else{
+    /* Non-aggregate query */
+    rc = selectStepWhered(p);
+  }
+
+  return rc;
+}
+
 /*
 ** Advance to the next row of the TK_SELECT query passed as the first 
 ** argument, disregarding any OFFSET or LIMIT clause.
@@ -216,72 +341,46 @@ static int selectStepUnordered(Query *p){
 ** return an error code if an error occurs.
 */
 static int selectStepOrdered(Query *p){
-  int rc;
+  int rc = XJD1_OK;               /* Return Code */
 
-  if( p->pAgg ){
-    Aggregate *pAgg = p->pAgg;
+  if( p->u.simple.pOrderBy ){
 
-    if( p->u.simple.pGroupBy==0 ){
-
-      /* An aggregate query with no GROUP BY clause. If there is no GROUP BY,
-      ** then exactly one row is returned, which makes ORDER BY and DISTINCT 
-      ** no-ops. And it is not possible to have a HAVING clause without a
-      ** GROUP BY, so no need to worry about that either. 
-      */
-      assert( p->u.simple.pHaving==0 );
-      
-      pAgg->eAction = XJD1_AGG_STEP;
-      while( XJD1_ROW==(rc = selectStepUnordered(p) ) ){
-        int i;
-        for(i=0; i<pAgg->nExpr; i++){
-          rc = xjd1AggregateStep(pAgg->apExpr[i]);
-          if( rc!=XJD1_OK ) return rc;
-        }
-        xjd1DataSrcCacheSave(p->u.simple.pFrom, pAgg->apNode);
-      }
-      if( rc!=XJD1_DONE ) return rc;
-      pAgg->eAction = XJD1_AGG_FINAL;
-      p->bDone = 1;
-      rc = XJD1_ROW;
-
-    }else{
-      assert(0);
-    }
-  }else if( p->u.simple.pOrderBy ){
-    /* There is an ORDER BY clause. */
-    if( p->bUseResultList==0 ){
+    /* A non-aggregate with an ORDER BY clause. */
+    if( p->ordered.pPool==0 ){
       int nKey = p->u.simple.pOrderBy->nEItem + 1;
       ExprList *pOrderBy = p->u.simple.pOrderBy;
       Pool *pPool;
       JsonNode **apKey;
 
-      p->result.nKey = nKey;
-      pPool = p->result.pPool = xjd1PoolNew();
+      p->ordered.nKey = nKey;
+      pPool = p->ordered.pPool = xjd1PoolNew();
       if( !pPool ) return XJD1_NOMEM;
       apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
       if( !apKey ) return XJD1_NOMEM;
 
-      while( XJD1_ROW==(rc = selectStepUnordered(p) ) ){
+      while( XJD1_ROW==(rc = selectStepGrouped(p) ) ){
         int i;
         for(i=0; i<pOrderBy->nEItem; i++){
           apKey[i] = xjd1ExprEval(pOrderBy->apEItem[i].pExpr);
         }
         apKey[i] = xjd1QueryDoc(p, 0);
 
-        rc = addToResultList(&p->result, apKey);
+        rc = addToResultList(&p->ordered, apKey);
         if( rc!=XJD1_OK ) break;
       }
       if( rc!=XJD1_DONE ) return rc;
 
-      sortResultList(&p->result, p->u.simple.pOrderBy);
-      p->bUseResultList = 1;
+      sortResultList(&p->ordered, p->u.simple.pOrderBy);
+      p->eDocFrom = XJD1_FROM_ORDERED;
     }else{
-      popResultList(&p->result);
+      assert( p->eDocFrom==XJD1_FROM_ORDERED );
+      popResultList(&p->ordered);
     }
 
-    rc = p->result.pItem ? XJD1_ROW : XJD1_DONE;
+    rc = p->ordered.pItem ? XJD1_ROW : XJD1_DONE;
   }else{
-    rc = selectStepUnordered(p);
+    /* No ORDER BY clause. */
+    rc = selectStepGrouped(p);
   }
 
   return rc;
@@ -293,7 +392,7 @@ static int selectStepOrdered(Query *p){
 */
 int xjd1QueryStep(Query *p){
   int rc = XJD1_ROW;
-  if( p==0 || p->bDone ) return XJD1_DONE;
+  if( p==0 ) return XJD1_DONE;
   if( p->eQType==TK_SELECT ){
 
     /* Calculate the values, if any, of the LIMIT and OFFSET clauses.
@@ -328,7 +427,6 @@ int xjd1QueryStep(Query *p){
         }
         xjd1JsonFree(pLimit);
       }
-      p->bStarted = 1;
     }
 
     if( rc==XJD1_ROW ){
@@ -339,6 +437,7 @@ int xjd1QueryStep(Query *p){
         if( p->nLimit>0 ) p->nLimit--;
       }
     }
+    p->bStarted = 1;
   }else{
     if( !p->u.compound.doneLeft ){
       rc = xjd1QueryStep(p->u.compound.pLeft);
@@ -361,15 +460,31 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
   JsonNode *pOut = 0;
   if( p ){
     if( p->eQType==TK_SELECT ){
-      if( p->bUseResultList ){
-        assert( zDocName==0 && p->result.pItem );
-        pOut = xjd1JsonRef(p->result.pItem->apKey[p->result.nKey-1]);
-      }else if( zDocName==0 && p->u.simple.pRes ){
-        pOut = xjd1ExprEval(p->u.simple.pRes);
-      }else if( p->pAgg && p->pAgg->eAction==XJD1_AGG_FINAL ){
-        pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom,p->pAgg->apNode,zDocName);
-      }else{
-        pOut = xjd1DataSrcDoc(p->u.simple.pFrom, zDocName);
+      switch( p->eDocFrom ){
+        case XJD1_FROM_ORDERED:
+          assert( zDocName==0 && p->ordered.pItem );
+          pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
+          break;
+
+        case XJD1_FROM_GROUPED:
+          if( zDocName==0 && p->u.simple.pRes ){
+            pOut = xjd1ExprEval(p->u.simple.pRes);
+          }else{
+            JsonNode **apSrc = p->grouped.pItem->apKey;
+            if( p->u.simple.pGroupBy ){
+              apSrc = &apSrc[p->u.simple.pGroupBy->nEItem];
+            }
+            pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom, apSrc, zDocName);
+          }
+          break;
+
+        case XJD1_FROM_DATASRC:
+          if( zDocName==0 && p->u.simple.pRes ){
+            pOut = xjd1ExprEval(p->u.simple.pRes);
+          }else{
+            pOut = xjd1DataSrcDoc(p->u.simple.pFrom, zDocName);
+          }
+          break;
       }
 
     }else if( !p->u.compound.doneLeft ){
@@ -392,7 +507,8 @@ int xjd1QueryClose(Query *pQuery){
   int rc = XJD1_OK;
   if( pQuery==0 ) return rc;
   if( pQuery->eQType==TK_SELECT ){
-    clearResultList(&pQuery->result);
+    clearResultList(&pQuery->ordered);
+    clearResultList(&pQuery->grouped);
     xjd1ExprClose(pQuery->u.simple.pRes);
     xjd1DataSrcClose(pQuery->u.simple.pFrom);
     xjd1ExprClose(pQuery->u.simple.pWhere);

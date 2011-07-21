@@ -26,8 +26,6 @@ struct Function {
   JsonNode *(*xFinal)(void *);
 };
 
-#define ArraySize(X)    ((int)(sizeof(X)/sizeof(X[0])))
-
 /*
 ** Implementation of scalar function "length(x)".
 */
@@ -76,16 +74,9 @@ int xjd1AggregateInit(xjd1_stmt *pStmt, Query *pQuery, Expr *p){
   Aggregate *pAgg = pQuery->pAgg;
 
   if( pAgg==0 ){
-    int nDatasrc;
-
     pAgg = (Aggregate *)xjd1PoolMallocZero(&pStmt->sPool, sizeof(Aggregate));
     if( pAgg==0 ) return XJD1_NOMEM;
     pQuery->pAgg = pAgg;
-
-    pAgg->nNode = xjd1DataSrcCount(pQuery->u.simple.pFrom);
-    nDatasrc = pAgg->nNode * sizeof(JsonNode *);
-    pAgg->apNode = (JsonNode **)xjd1PoolMallocZero(&pStmt->sPool, nDatasrc);
-    if( pAgg->apNode==0 ) return XJD1_NOMEM;
   }
 
   if( p ){
@@ -169,7 +160,7 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
   return XJD1_OK;
 }
 
-int xjd1AggregateStep(Expr *p){
+static int aggExprStep(Expr *p){
   Function *pFunc = p->u.func.pFunction;
   int i;
   int nItem = p->u.func.args->nEItem;
@@ -189,6 +180,15 @@ int xjd1AggregateStep(Expr *p){
   return XJD1_OK;
 }
 
+int xjd1AggregateStep(Aggregate *pAgg){
+  int i;                /* Used to iterate through aggregate functions */
+  for(i=0; i<pAgg->nExpr; i++){
+    int rc = aggExprStep(pAgg->apExpr[i]);
+    if( rc!=XJD1_OK ) return rc;
+  }
+  return XJD1_OK;;
+}
+
 /*
 ** Call any outstanding xFinal() functions for aggregate functions in the
 ** query. This is required to reset the aggregate contexts when a query is 
@@ -199,10 +199,6 @@ void xjd1AggregateClear(Query *pQuery){
 
   if( pAgg ){
     int i;
-    for(i=0; i<pAgg->nNode; i++){
-      xjd1JsonFree(pAgg->apNode[i]);
-      pAgg->apNode[i] = 0;
-    }
     for(i=0; i<pAgg->nExpr; i++){
       Expr *p = pAgg->apExpr[i];  /* Aggregate expression to finalize */
       xjd1JsonFree( p->u.func.pFunction->xFinal(p->u.func.pAggCtx) );
