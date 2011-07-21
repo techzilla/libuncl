@@ -273,6 +273,7 @@ struct Query {
       int doneLeft;               /* True if left is run to completion */
     } compound;
     struct {                    /* For simple queries */
+      int isDistinct;             /* True if the DISTINCT keyword is present */
       Expr *pRes;                 /* Result JSON string */
       DataSrc *pFrom;             /* The FROM clause */
       Expr *pWhere;               /* The WHERE clause */
@@ -295,9 +296,10 @@ struct Query {
 };
 
 /* Candidate values for Query.eDocFrom */
-#define XJD1_FROM_DATASRC 0
-#define XJD1_FROM_GROUPED 1
-#define XJD1_FROM_ORDERED 2
+#define XJD1_FROM_DATASRC    0
+#define XJD1_FROM_GROUPED    1
+#define XJD1_FROM_DISTINCTED 2
+#define XJD1_FROM_ORDERED    3
 
 /* A Data Source is a representation of a term out of the FROM clause. */
 struct DataSrc {

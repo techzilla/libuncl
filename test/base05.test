@@ -108,3 +108,11 @@ SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a ORDER BY count(c2.b) ASC;
 SELECT {x:count(c2.b),y:c2.a} FROM c2 GROUP BY c2.a HAVING count(c2.b)>1;
 .result {"x":3,"y":"a"} {"x":2,"y":"b"} 
 
+.testcase 19
+SELECT DISTINCT c2.a FROM c2;
+.result "a" "b" "c"
+
+.testcase 20
+SELECT DISTINCT c2.a FROM c2 ORDER BY c2.a DESC;
+.result "c" "b" "a"
+

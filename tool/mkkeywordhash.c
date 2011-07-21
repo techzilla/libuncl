@@ -67,6 +67,7 @@ static Keyword aKeywordTable[] = {
   { "COLLECTION",   "TK_COLLECTION", },
   { "COMMIT",       "TK_COMMIT",     },
   { "CREATE",       "TK_CREATE",     },
+  { "DISTINCT",     "TK_DISTINCT",   },
   { "DELETE",       "TK_DELETE",     },
   { "DESCENDING",   "TK_DESCENDING", },
   { "DESC",         "TK_DESCENDING", },

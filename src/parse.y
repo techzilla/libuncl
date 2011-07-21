@@ -357,6 +357,7 @@ cmd(A) ::= select(X).  {
   /* Construct a simple query object */
   static Query *simpleQuery(
     Parse *p,
+    int isDistinct,
     Expr *pRes,
     DataSrc *pFrom,
     Expr *pWhere,
@@ -367,6 +368,7 @@ cmd(A) ::= select(X).  {
     Query *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eQType = TK_SELECT;
+      pNew->u.simple.isDistinct = isDistinct;
       pNew->u.simple.pRes = pRes;
       pNew->u.simple.pFrom = pFrom;
       pNew->u.simple.pWhere = pWhere;
@@ -406,10 +408,15 @@ eselect(A) ::= select(X).                          {A = X;}
 eselect(A) ::= expr(X).       // must be (SELECT...)
   {A = X->u.subq.p;}
 
-oneselect(A) ::= SELECT expr_opt(S) from(F) where_opt(W)
+oneselect(A) ::= SELECT distinct_opt(D) expr_opt(S) from(F) where_opt(W)
                     groupby_opt(G) orderby_opt(O) limit_opt(L).
-  {A = simpleQuery(p,S,F,W,&G,O,&L);}
+  {A = simpleQuery(p,D,S,F,W,&G,O,&L);}
 
+
+%type distinct_opt {int}
+distinct_opt(A) ::= .                    {A = 0;}
+distinct_opt(A) ::= DISTINCT.            {A = 1;}
+distinct_opt(A) ::= ALL.                 {A = 0;}
 
 // The result set of an expression can be either an JSON expression
 // or nothing.
@@ -417,7 +424,6 @@ oneselect(A) ::= SELECT expr_opt(S) from(F) where_opt(W)
 %type expr_opt {Expr*}
 expr_opt(A) ::= .                       {A = 0;}
 expr_opt(A) ::= expr(X).                {A = X;}
-
 
 // A complete FROM clause.
 //

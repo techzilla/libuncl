@@ -52,10 +52,11 @@ static int addToResultList(
 static int cmpResultItem(ResultItem *p1, ResultItem *p2, ExprList *pEList){
   int i;
   int c = 0;
-  for(i=0; i<pEList->nEItem; i++){
+  int nEItem = (pEList ? pEList->nEItem : 1);
+  for(i=0; i<nEItem; i++){
     if( 0!=(c=xjd1JsonCompare(p1->apKey[i], p2->apKey[i])) ) break;
   }
-  if( c ){
+  if( c && pEList ){
     char const *zDir = pEList->apEItem[i].zAs;
     if( zDir && zDir[0]=='D' ){
       c = c*-1;
@@ -181,6 +182,7 @@ int xjd1QueryRewind(Query *p){
     p->bStarted = 0;
     clearResultList(&p->ordered);
     clearResultList(&p->grouped);
+    clearResultList(&p->distincted);
     xjd1AggregateClear(p);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
@@ -340,6 +342,50 @@ static int selectStepGrouped(Query *p){
   return rc;
 }
 
+static int selectStepDistinct(Query *p){
+  int rc;
+  if( p->u.simple.isDistinct ){
+    if( p->distincted.pPool==0 ){
+      Pool *pPool;
+      JsonNode **apKey;
+      int nKey;
+
+      nKey = 1 + xjd1DataSrcCount(p->u.simple.pFrom);
+      pPool = p->distincted.pPool = xjd1PoolNew();
+      if( !pPool ) return XJD1_NOMEM;
+      p->distincted.nKey = nKey;
+      apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
+      if( !apKey ) return XJD1_NOMEM;
+
+      while( XJD1_ROW==(rc = selectStepGrouped(p) ) ){
+        apKey[0] = xjd1QueryDoc(p, 0);
+        xjd1DataSrcCacheSave(p->u.simple.pFrom, &apKey[1]);
+        rc = addToResultList(&p->distincted, apKey);
+        memset(apKey, 0, nKey * sizeof(JsonNode *));
+        if( rc!=XJD1_OK ) break;
+      }
+      if( rc==XJD1_DONE ){
+        sortResultList(&p->distincted, 0);
+        p->eDocFrom = XJD1_FROM_DISTINCTED;
+        rc = XJD1_ROW;
+      }
+    }else{
+      JsonNode *pPrev = xjd1JsonRef(p->distincted.pItem->apKey[0]);
+      do{
+        popResultList(&p->distincted);
+      }while( p->distincted.pItem 
+           && 0==xjd1JsonCompare(pPrev, p->distincted.pItem->apKey[0])
+      );
+      rc = p->distincted.pItem ? XJD1_ROW : XJD1_DONE;
+    }
+  }else{
+    rc = selectStepGrouped(p);
+
+
+  }
+  return rc;
+}
+
 /*
 ** Advance to the next row of the TK_SELECT query passed as the first 
 ** argument, disregarding any OFFSET or LIMIT clause.
@@ -365,7 +411,7 @@ static int selectStepOrdered(Query *p){
       apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
       if( !apKey ) return XJD1_NOMEM;
 
-      while( XJD1_ROW==(rc = selectStepGrouped(p) ) ){
+      while( XJD1_ROW==(rc = selectStepDistinct(p) ) ){
         int i;
         for(i=0; i<pOrderBy->nEItem; i++){
           apKey[i] = xjd1ExprEval(pOrderBy->apEItem[i].pExpr);
@@ -387,7 +433,7 @@ static int selectStepOrdered(Query *p){
     rc = p->ordered.pItem ? XJD1_ROW : XJD1_DONE;
   }else{
     /* No ORDER BY clause. */
-    rc = selectStepGrouped(p);
+    rc = selectStepDistinct(p);
   }
 
   return rc;
@@ -473,6 +519,15 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
           pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
           break;
 
+        case XJD1_FROM_DISTINCTED:
+          if( zDocName==0 ){
+            pOut = xjd1JsonRef(p->distincted.pItem->apKey[0]);
+          }else{
+            JsonNode **apSrc = &p->distincted.pItem->apKey[1];
+            pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom, apSrc, zDocName);
+          }
+          break;
+
         case XJD1_FROM_GROUPED:
           if( zDocName==0 && p->u.simple.pRes ){
             pOut = xjd1ExprEval(p->u.simple.pRes);
@@ -516,6 +571,7 @@ int xjd1QueryClose(Query *pQuery){
   if( pQuery->eQType==TK_SELECT ){
     clearResultList(&pQuery->ordered);
     clearResultList(&pQuery->grouped);
+    clearResultList(&pQuery->distincted);
     xjd1ExprClose(pQuery->u.simple.pRes);
     xjd1DataSrcClose(pQuery->u.simple.pFrom);
     xjd1ExprClose(pQuery->u.simple.pWhere);
