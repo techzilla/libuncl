@@ -85,18 +85,19 @@ int xjd1AggregateInit(xjd1_stmt *pStmt, Query *pQuery, Expr *p){
     if( (pAgg->nExpr % ARRAY_ALLOC_INCR)==0 ){
       int nByte;                    /* Size of new allocation in bytes */
       int nCopy;                    /* Size of old allocation in bytes */
-      Expr **apNew;                 /* Pointer to new allocation */
+      AggExpr *aNew;                /* Pointer to new allocation */
      
-      nByte = (pAgg->nExpr + ARRAY_ALLOC_INCR) * sizeof(Expr *);
-      nCopy = pAgg->nExpr * sizeof(Expr *);
-      apNew = (Expr **)xjd1PoolMallocZero(&pStmt->sPool, nByte);
+      nByte = (pAgg->nExpr + ARRAY_ALLOC_INCR) * sizeof(AggExpr);
+      nCopy = pAgg->nExpr * sizeof(AggExpr);
+      aNew = (AggExpr *)xjd1PoolMallocZero(&pStmt->sPool, nByte);
   
-      if( apNew==0 ) return XJD1_NOMEM;
-      memcpy(apNew, pAgg->apExpr, nCopy);
-      pAgg->apExpr = apNew;
+      if( aNew==0 ) return XJD1_NOMEM;
+      memcpy(aNew, pAgg->aAggExpr, nCopy);
+      pAgg->aAggExpr = aNew;
     }
   
-    pAgg->apExpr[pAgg->nExpr++] = p;
+    p->u.func.iAgg = pAgg->nExpr;
+    pAgg->aAggExpr[pAgg->nExpr++].pExpr = p;
   }
 
   return XJD1_OK;
@@ -160,7 +161,8 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
   return XJD1_OK;
 }
 
-static int aggExprStep(Expr *p){
+static int aggExprStep(AggExpr *pAggExpr){
+  Expr *p = pAggExpr->pExpr;
   Function *pFunc = p->u.func.pFunction;
   int i;
   int nItem = p->u.func.args->nEItem;
@@ -172,7 +174,7 @@ static int aggExprStep(Expr *p){
     p->u.func.apArg[i] = xjd1ExprEval(p->u.func.args->apEItem[i].pExpr);
   }
 
-  pFunc->xStep(nItem, p->u.func.apArg, &p->u.func.pAggCtx);
+  pFunc->xStep(nItem, p->u.func.apArg, &pAggExpr->pAggCtx);
   for(i=0; i<nItem; i++){
     xjd1JsonFree(p->u.func.apArg[i]);
   }
@@ -183,10 +185,25 @@ static int aggExprStep(Expr *p){
 int xjd1AggregateStep(Aggregate *pAgg){
   int i;                /* Used to iterate through aggregate functions */
   for(i=0; i<pAgg->nExpr; i++){
-    int rc = aggExprStep(pAgg->apExpr[i]);
+    int rc = aggExprStep(&pAgg->aAggExpr[i]);
     if( rc!=XJD1_OK ) return rc;
   }
   return XJD1_OK;;
+}
+
+int xjd1AggregateFinalize(Aggregate *pAgg){
+  int i;
+  for(i=0; i<pAgg->nExpr; i++){
+    AggExpr *pAggExpr = &pAgg->aAggExpr[i];
+    Expr *p = pAggExpr->pExpr;
+
+    assert( i==p->u.func.iAgg );
+    xjd1JsonFree(pAggExpr->pValue);
+    pAggExpr->pValue = p->u.func.pFunction->xFinal(pAggExpr->pAggCtx);
+    pAggExpr->pAggCtx = 0;
+  }
+
+  return XJD1_OK;
 }
 
 /*
@@ -200,9 +217,13 @@ void xjd1AggregateClear(Query *pQuery){
   if( pAgg ){
     int i;
     for(i=0; i<pAgg->nExpr; i++){
-      Expr *p = pAgg->apExpr[i];  /* Aggregate expression to finalize */
-      xjd1JsonFree( p->u.func.pFunction->xFinal(p->u.func.pAggCtx) );
-      p->u.func.pAggCtx = 0;
+      AggExpr *pAggExpr = &pAgg->aAggExpr[i];
+      Expr *p = pAggExpr->pExpr;
+
+      xjd1JsonFree( p->u.func.pFunction->xFinal(pAggExpr->pAggCtx) );
+      xjd1JsonFree( pAggExpr->pValue );
+      pAggExpr->pAggCtx = 0;
+      pAggExpr->pValue = 0;
     }
   }
 }
@@ -226,10 +247,8 @@ JsonNode *xjd1FunctionEval(Expr *p){
       xjd1JsonFree(p->u.func.apArg[i]);
     }
   }else{
-    /* This is the xFinal() call of an aggregate function. */
-    assert( pFunc->xStep && pFunc->xFinal );
-    pRet = pFunc->xFinal(p->u.func.pAggCtx);
-    p->u.func.pAggCtx = 0;
+    AggExpr *pAggExpr = &p->pQuery->pAgg->aAggExpr[p->u.func.iAgg];
+    pRet = xjd1JsonRef(pAggExpr->pValue);
   }
 
   return pRet;

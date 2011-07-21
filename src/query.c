@@ -243,13 +243,18 @@ static int selectStepGrouped(Query *p){
           rc = xjd1AggregateStep(pAgg);
           xjd1DataSrcCacheSave(p->u.simple.pFrom, apSrc);
         }
+        assert( rc!=XJD1_OK );
         if( rc==XJD1_DONE ){
           rc = addToResultList(&p->grouped, apSrc);
-          if( rc==XJD1_OK ){
-            rc = XJD1_ROW;
-            p->eDocFrom = XJD1_FROM_GROUPED;
-          }
         }
+        if( rc==XJD1_OK ){
+          rc = xjd1AggregateFinalize(pAgg);
+        }
+        if( rc==XJD1_OK ){
+          rc = XJD1_ROW;
+          p->eDocFrom = XJD1_FROM_GROUPED;
+        }
+
       }else{
         rc = XJD1_DONE;
       }
@@ -311,13 +316,15 @@ static int selectStepGrouped(Query *p){
           while( 1 ){
             ResultItem *pNext = pItem->pNext;
             rc = xjd1AggregateStep(pAgg);
-            if( !pNext || cmpResultItem(pItem, pNext, pGroupBy) ){
+            if( rc || !pNext || cmpResultItem(pItem, pNext, pGroupBy) ){
               break;
             }
             popResultList(&p->grouped);
             pItem = p->grouped.pItem;
           }
-          rc = XJD1_ROW;
+          if( XJD1_OK==rc && XJD1_OK==(rc = xjd1AggregateFinalize(pAgg)) ){
+            rc = XJD1_ROW;
+          }
         }
 
       }while( rc==XJD1_ROW 

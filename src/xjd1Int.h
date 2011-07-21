@@ -54,6 +54,7 @@
 
 typedef unsigned char u8;
 typedef unsigned short int u16;
+typedef struct AggExpr AggExpr;
 typedef struct Aggregate Aggregate;
 typedef struct Command Command;
 typedef struct DataSrc DataSrc;
@@ -172,7 +173,7 @@ struct Expr {
       ExprList *args;          /* List of arguments */
       Function *pFunction;     /* Function object */
       JsonNode **apArg;        /* Array to martial function arguments in */
-      void *pAggCtx;           /* Context for aggregate functions */
+      int iAgg;
     } func;
     struct {                /* Subqueries.  eClass=EXPR_Q */
       Query *p;                /* The subquery */
@@ -253,7 +254,11 @@ struct ResultList {
 
 struct Aggregate {
   int nExpr;                      /* Number of aggregate functions */
-  Expr **apExpr;                  /* Array of aggregate functions */
+  struct AggExpr {
+    Expr *pExpr;                  /* Array of aggregate functions */
+    JsonNode *pValue;             /* Value returned by xFinal() */
+    void *pAggCtx;                /* Context pointer used by implementation */
+  } *aAggExpr;
 };
 
 /* A query statement */
@@ -281,6 +286,7 @@ struct Query {
 
   Aggregate *pAgg;                /* Aggregation info. 0 for non-aggregates */
   ResultList grouped;             /* Grouped results, for GROUP BY queries */
+  ResultList distincted;          /* Distinct results */
   ResultList ordered;             /* Query results in sorted order */
   int eDocFrom;                   /* XJD1_FROM_* - configures xjd1QueryDoc() */
 
@@ -470,6 +476,7 @@ void xjd1FunctionClose(Expr *p);
 
 int xjd1AggregateInit(xjd1_stmt *, Query *, Expr *);
 int xjd1AggregateStep(Aggregate *);
+int xjd1AggregateFinalize(Aggregate *);
 void xjd1AggregateClear(Query *);
 
 #endif /* _XJD1INT_H */
