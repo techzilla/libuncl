@@ -1,0 +1,33 @@
+<title>UnQL Syntax Summary</title><nowiki>
+<h3>unql-stmt:</h3>
+<img src="unql-stmt.gif">
+<h3>select-stmt:</h3>
+<img src="select-stmt.gif">
+<h3>select-core:</h3>
+<img src="select-core.gif">
+<h3>data-source:</h3>
+<img src="data-source.gif">
+<h3>compound-operator:</h3>
+<img src="compound-operator.gif">
+<h3>create-collection-stmt:</h3>
+<img src="create-collection-stmt.gif">
+<h3>drop-collection-stmt:</h3>
+<img src="drop-collection-stmt.gif">
+<h3>insert-stmt:</h3>
+<img src="insert-stmt.gif">
+<h3>update-stmt:</h3>
+<img src="update-stmt.gif">
+<h3>delete-stmt:</h3>
+<img src="delete-stmt.gif">
+<h3>property:</h3>
+<img src="property.gif">
+<h3>expr:</h3>
+<img src="expr.gif">
+<h3>begin-stmt:</h3>
+<img src="begin-stmt.gif">
+<h3>commit-stmt:</h3>
+<img src="commit-stmt.gif">
+<h3>rollback-stmt:</h3>
+<img src="rollback-stmt.gif">
+<h3>pragma-stmt:</h3>
+<img src="pragma-stmt.gif">

@@ -11,7 +11,7 @@
 #
 
 set all_graphs {
-  sql-stmt {
+  unql-stmt {
     line
       {or
          select-stmt

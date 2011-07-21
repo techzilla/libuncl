@@ -635,11 +635,19 @@ proc draw_graph {name spec {do_xv 1}} {
   if {$do_xv} {
     exec xv $name.gif &
   }
+  set in [open $name.ps r]
+  set postscript [read $in]
+  close $in
+  regsub {\n%%CreationDate: [^\n]+\n} $postscript "\n" postscript
+  set out [open $name.ps w]
+  puts -nonewline $out $postscript
+  close $out
 }
 
 proc draw_all_graphs {} {
   global all_graphs
-  set f [open all.html w]
+  set f [open all.wiki w]
+  puts $f "<title>UnQL Syntax Summary</title><nowiki>"
   foreach {name graph} $all_graphs {
     if {[regexp {^X-} $name]} continue
     puts $f "<h3>$name:</h3>"
