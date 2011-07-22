@@ -744,3 +744,22 @@ int xjd1ExprTrue(Expr *p){
   }
   return rc;
 }
+
+static int setExprQuery(Expr *p, WalkAction *pAction){
+  p->pQuery = pAction->pQuery;
+  return XJD1_OK;
+}
+
+void xjd1SetExprListQuery(ExprList *pList, Query *p){
+  int i;
+  WalkAction action;
+
+  action.xQueryAction = 0;
+  action.pQuery = p;
+  action.pStmt = 0;
+  action.pArg = 0;
+  action.xNodeAction= setExprQuery;
+  for(i=0; i<pList->nEItem; i++){
+    walkExpr(pList->apEItem[i].pExpr, &action);
+  }
+}

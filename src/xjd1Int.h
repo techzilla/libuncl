@@ -270,7 +270,10 @@ struct Query {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
       Query *pRight;              /* Right subquery */
-      int doneLeft;               /* True if left is run to completion */
+      int doneLeft;               /* True if left has run to completion */
+      ResultList left;            /* Sorted results of pLeft */
+      ResultList right;           /* Sorted results of pRight */
+      JsonNode *pOut;
     } compound;
     struct {                    /* For simple queries */
       int isDistinct;             /* True if the DISTINCT keyword is present */
@@ -288,10 +291,11 @@ struct Query {
   Aggregate *pAgg;                /* Aggregation info. 0 for non-aggregates */
   ResultList grouped;             /* Grouped results, for GROUP BY queries */
   ResultList distincted;          /* Distinct results */
-  ResultList ordered;             /* Query results in sorted order */
+
   int eDocFrom;                   /* XJD1_FROM_* - configures xjd1QueryDoc() */
 
-  int bStarted;                   /* Set to true after first Step() */
+  ResultList ordered;             /* Query results in sorted order */
+  int bLimitValid;                /* Set to true after nLimit is set */
   int nLimit;                     /* Stop after returning this many more rows */
 };
 

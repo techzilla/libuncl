@@ -98,7 +98,7 @@ static ResultItem *mergeResultItems(
   return pRet;
 }
 
-static void sortResultList(ResultList *pList, ExprList *pEList){
+static void sortResultList(ResultList *pList, ExprList *pEList, int uniq){
   int i;                          /* Used to iterate through aList[] */
   ResultItem *aList[40];          /* Array of slots for merge sort */
   ResultItem *pHead;
@@ -122,8 +122,27 @@ static void sortResultList(ResultList *pList, ExprList *pEList){
   for(i=1; i<ArraySize(aList); i++){
     pHead = mergeResultItems(pEList, pHead, aList[i]);
   }
-
   pList->pItem = pHead;
+
+  if( uniq && pHead ){
+    ResultItem *pPrev = pHead;
+    ResultItem *p;
+    for(p=pPrev->pNext; p; p=p->pNext){
+      if( cmpResultItem(pPrev, p, pEList)==0 ){
+        pPrev->pNext = p->pNext;
+      }else{
+        pPrev = p;
+      }
+    }
+  }
+
+#if 1
+  while( pHead ){
+    ResultItem *pNext = pHead->pNext;
+    assert( pNext==0 || cmpResultItem(pHead, pNext, pEList)<=(uniq?-1:0) );
+    pHead = pNext;
+  }
+#endif
 }
 
 static void popResultList(ResultList *pList){
@@ -179,15 +198,19 @@ int xjd1QueryRewind(Query *p){
   if( p->eQType==TK_SELECT ){
     xjd1DataSrcRewind(p->u.simple.pFrom);
     p->eDocFrom = XJD1_FROM_DATASRC;
-    p->bStarted = 0;
+    p->bLimitValid = 0;
     clearResultList(&p->ordered);
     clearResultList(&p->grouped);
     clearResultList(&p->distincted);
     xjd1AggregateClear(p);
   }else{
     xjd1QueryRewind(p->u.compound.pLeft);
-    p->u.compound.doneLeft = 0;
     xjd1QueryRewind(p->u.compound.pRight);
+    p->u.compound.doneLeft = 0;
+    clearResultList(&p->u.compound.left);
+    clearResultList(&p->u.compound.right);
+    xjd1JsonFree(p->u.compound.pOut);
+    p->u.compound.pOut = 0;
   }
   return XJD1_OK;
 }
@@ -305,7 +328,7 @@ static int selectStepGrouped(Query *p){
             memset(apKey, 0, nByte);
           }
           if( rc!=XJD1_DONE ) return rc;
-          sortResultList(&p->grouped, pGroupBy);
+          sortResultList(&p->grouped, pGroupBy, 0);
         }else{
           popResultList(&p->grouped);
         }
@@ -365,7 +388,7 @@ static int selectStepDistinct(Query *p){
         if( rc!=XJD1_OK ) break;
       }
       if( rc==XJD1_DONE ){
-        sortResultList(&p->distincted, 0);
+        sortResultList(&p->distincted, 0, 1);
         p->eDocFrom = XJD1_FROM_DISTINCTED;
         rc = XJD1_ROW;
       }
@@ -386,6 +409,117 @@ static int selectStepDistinct(Query *p){
   return rc;
 }
 
+
+static int selectStepCompounded(Query *);
+static int cacheQuery(ResultList *pList, Query *p){
+  Pool *pPool;
+  int rc;
+
+  pList->nKey = 1;
+  pPool = pList->pPool = xjd1PoolNew();
+  if( !pPool ) return XJD1_NOMEM;
+
+  while( XJD1_ROW==(rc = selectStepCompounded(p) ) ){
+    JsonNode *pDoc = xjd1QueryDoc(p, 0);
+    rc = addToResultList(pList, &pDoc);
+    if( rc!=XJD1_OK ) break;
+  }
+
+  if( rc==XJD1_DONE ){
+    sortResultList(pList, 0, 1);
+    rc = XJD1_OK;
+  }
+  return rc;
+}
+
+
+static int selectStepCompounded(Query *p){
+  int rc;
+  if( p->eQType==TK_SELECT ){
+    rc = selectStepDistinct(p);
+  }else if( p->eQType==TK_ALL ){
+    rc = XJD1_DONE;
+    if( p->u.compound.doneLeft==0 ){
+      rc = selectStepCompounded(p->u.compound.pLeft);
+    }
+    if( rc==XJD1_DONE ){
+      p->u.compound.doneLeft = 1;
+      rc = selectStepCompounded(p->u.compound.pRight);
+    }
+  }else{
+    JsonNode *pOut = 0;
+    ResultList *p1;
+    ResultList *p2;
+
+    if( p->u.compound.left.pPool==0 ){
+      rc = cacheQuery(&p->u.compound.left, p->u.compound.pLeft);
+      if( rc!=XJD1_OK ) return rc;
+      rc = cacheQuery(&p->u.compound.right, p->u.compound.pRight);
+      if( rc!=XJD1_OK ) return rc;
+    }
+
+    p1 = &p->u.compound.left;
+    p2 = &p->u.compound.right;
+    rc = XJD1_DONE;
+
+    switch( p->eQType ){
+      case TK_UNION: {
+        if( (p1->pItem || p2->pItem) ){
+          int c;
+          if( p1->pItem==0 ){
+            c = 1;
+          }else if( p2->pItem==0 ){
+            c = -1;
+          }else{
+            c = cmpResultItem(p1->pItem, p2->pItem, 0);
+          }
+          
+          if( c<0 ){
+            pOut = xjd1JsonRef(p1->pItem->apKey[0]);
+          }else{
+            pOut = xjd1JsonRef(p2->pItem->apKey[0]);
+          }
+          if( c<=0 ) popResultList(p1);
+          if( c>=0 ) popResultList(p2);
+          rc = XJD1_ROW;
+        }
+        break;
+      }
+
+      case TK_INTERSECT:
+        while( rc==XJD1_DONE && p1->pItem && p2->pItem ){
+          int c = cmpResultItem(p1->pItem, p2->pItem, 0);
+          if( c==0 ){
+            pOut = xjd1JsonRef(p1->pItem->apKey[0]);
+            rc = XJD1_ROW;
+          }
+          if( c<=0 ) popResultList(p1);
+          if( c>=0 ) popResultList(p2);
+        }
+        break;
+
+      case TK_EXCEPT:
+        while( rc==XJD1_DONE && p1->pItem ){
+          int c = p2->pItem ? cmpResultItem(p1->pItem, p2->pItem, 0) : -1;
+          if( c<=0 ){
+            if( c ){
+              pOut = xjd1JsonRef(p1->pItem->apKey[0]);
+              rc = XJD1_ROW;
+            }
+            popResultList(p1);
+          }else{
+            popResultList(p2);
+          }
+        }
+        break;
+    }
+
+    xjd1JsonFree(p->u.compound.pOut);
+    p->u.compound.pOut = pOut;
+  }
+  return rc;
+}
+
 /*
 ** Advance to the next row of the TK_SELECT query passed as the first 
 ** argument, disregarding any OFFSET or LIMIT clause.
@@ -395,13 +529,22 @@ static int selectStepDistinct(Query *p){
 */
 static int selectStepOrdered(Query *p){
   int rc = XJD1_OK;               /* Return Code */
+  ExprList *pOrderBy;             /* ORDER BY clause (or NULL) */
 
-  if( p->u.simple.pOrderBy ){
+  /* Find the ORDER BY clause, if any */
+  Query *pRight;
+  for(pRight=p; pRight->eQType!=TK_SELECT; pRight=pRight->u.compound.pRight);
+  pOrderBy = pRight->u.simple.pOrderBy;
+
+  if( pOrderBy ){
+
+    /* TODO: Fix this hack. */
+    extern void xjd1SetExprListQuery(ExprList *, Query *);
+    xjd1SetExprListQuery(pOrderBy, p);
 
     /* A non-aggregate with an ORDER BY clause. */
     if( p->ordered.pPool==0 ){
-      int nKey = p->u.simple.pOrderBy->nEItem + 1;
-      ExprList *pOrderBy = p->u.simple.pOrderBy;
+      int nKey = pOrderBy->nEItem + 1;
       Pool *pPool;
       JsonNode **apKey;
 
@@ -411,7 +554,7 @@ static int selectStepOrdered(Query *p){
       apKey = xjd1PoolMallocZero(pPool, nKey * sizeof(JsonNode *));
       if( !apKey ) return XJD1_NOMEM;
 
-      while( XJD1_ROW==(rc = selectStepDistinct(p) ) ){
+      while( XJD1_ROW==(rc = selectStepCompounded(p) ) ){
         int i;
         for(i=0; i<pOrderBy->nEItem; i++){
           apKey[i] = xjd1ExprEval(pOrderBy->apEItem[i].pExpr);
@@ -423,7 +566,7 @@ static int selectStepOrdered(Query *p){
       }
       if( rc!=XJD1_DONE ) return rc;
 
-      sortResultList(&p->ordered, p->u.simple.pOrderBy);
+      sortResultList(&p->ordered, pOrderBy, 0);
       p->eDocFrom = XJD1_FROM_ORDERED;
     }else{
       assert( p->eDocFrom==XJD1_FROM_ORDERED );
@@ -433,7 +576,7 @@ static int selectStepOrdered(Query *p){
     rc = p->ordered.pItem ? XJD1_ROW : XJD1_DONE;
   }else{
     /* No ORDER BY clause. */
-    rc = selectStepDistinct(p);
+    rc = selectStepCompounded(p);
   }
 
   return rc;
@@ -446,60 +589,64 @@ static int selectStepOrdered(Query *p){
 int xjd1QueryStep(Query *p){
   int rc = XJD1_ROW;
   if( p==0 ) return XJD1_DONE;
-  if( p->eQType==TK_SELECT ){
 
+  /* Query is either a simple SELECT, or a compound of some type. */
+  assert( p->eQType==TK_SELECT || p->eQType==TK_UNION || p->eQType==TK_ALL
+       || p->eQType==TK_EXCEPT || p->eQType==TK_INTERSECT
+  );
+
+  if( p->bLimitValid==0 ){
     /* Calculate the values, if any, of the LIMIT and OFFSET clauses.
     **
     ** TBD: Should this throw an exception if the result of evaluating
     ** either of these clauses cannot be converted to a number?
     */
-    if( p->bStarted==0 ){
-      if( p->u.simple.pOffset ){
-        double rOffset;
-        JsonNode *pOffset;
+    Expr *pLimit;                 /* The LIMIT expression, or NULL */
+    Expr *pOffset;                /* The OFFSET expression, or NULL */
 
-        pOffset = xjd1ExprEval(p->u.simple.pOffset);
-        if( 0==xjd1JsonToReal(pOffset, &rOffset) ){
-          int nOffset;
-          for(nOffset=(int)rOffset; nOffset>0; nOffset--){
-            rc = selectStepOrdered(p);
-            if( rc!=XJD1_ROW ) break;
-          }
+    Query *pRight;
+    for(pRight=p; pRight->eQType!=TK_SELECT; pRight=pRight->u.compound.pRight);
+    pLimit = pRight->u.simple.pLimit;
+    pOffset = pRight->u.simple.pOffset;
+
+    if( pOffset ){
+      JsonNode *pVal;             /* Result of evaluating expression pOffset */
+      double rOffset;             /* pVal converted to a number */
+
+      pVal = xjd1ExprEval(pOffset);
+      if( 0==xjd1JsonToReal(pVal, &rOffset) ){
+        int nOffset;
+        for(nOffset=(int)rOffset; nOffset>0; nOffset--){
+          rc = selectStepOrdered(p);
+          if( rc!=XJD1_ROW ) break;
         }
-        xjd1JsonFree(pOffset);
       }
-
-      p->nLimit = -1;
-      if( p->u.simple.pLimit ){
-        double rLimit;
-        JsonNode *pLimit;
-
-        pLimit = xjd1ExprEval(p->u.simple.pLimit);
-        if( 0==xjd1JsonToReal(pLimit, &rLimit) ){
-          p->nLimit = (int)rLimit;
-        }
-        xjd1JsonFree(pLimit);
-      }
+      xjd1JsonFree(pVal);
     }
 
-    if( rc==XJD1_ROW ){
-      if( p->nLimit==0 ){
-        rc = XJD1_DONE;
-      }else{
-        rc = selectStepOrdered(p);
-        if( p->nLimit>0 ) p->nLimit--;
+    p->nLimit = -1;
+    if( p->u.simple.pLimit ){
+      double rLimit;
+      JsonNode *pVal;
+
+      pVal = xjd1ExprEval(pLimit);
+      if( 0==xjd1JsonToReal(pVal, &rLimit) ){
+        p->nLimit = (int)rLimit;
       }
+      xjd1JsonFree(pVal);
     }
-    p->bStarted = 1;
-  }else{
-    if( !p->u.compound.doneLeft ){
-      rc = xjd1QueryStep(p->u.compound.pLeft);
-      if( rc==XJD1_DONE ) p->u.compound.doneLeft = 1;
-    }
-    if( p->u.compound.doneLeft ){
-      rc = xjd1QueryStep(p->u.compound.pRight);
+    p->bLimitValid = 1;
+  }
+
+  if( rc==XJD1_ROW ){
+    if( p->nLimit==0 ){
+      rc = XJD1_DONE;
+    }else{
+      rc = selectStepOrdered(p);
+      if( p->nLimit>0 ) p->nLimit--;
     }
   }
+
   return rc;
 }
 
@@ -548,12 +695,22 @@ JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
           }
           break;
       }
-
-    }else if( !p->u.compound.doneLeft ){
-      pOut = xjd1QueryDoc(p->u.compound.pLeft, zDocName);
+    }else if( p->eQType==TK_ALL ){
+      if( p->eDocFrom==XJD1_FROM_ORDERED ){
+        assert( zDocName==0 && p->ordered.pItem );
+        pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
+      }else if( 0==p->u.compound.doneLeft ){
+        pOut = xjd1QueryDoc(p->u.compound.pLeft, zDocName);
+      }else{
+        pOut = xjd1QueryDoc(p->u.compound.pRight, zDocName);
+      }
     }else{
-      pOut = xjd1QueryDoc(p->u.compound.pRight, zDocName);
+      pOut = xjd1JsonRef(p->u.compound.pOut);
     }
+
+    /* If no document has been found and this is a sub-query, search the 
+    ** parent query for a document of the specified name. 
+    */
     if( pOut==0 && zDocName ){
       pOut = xjd1QueryDoc(p->pOuter, zDocName);
     }
@@ -583,6 +740,10 @@ int xjd1QueryClose(Query *pQuery){
   }else{
     xjd1QueryClose(pQuery->u.compound.pLeft);
     xjd1QueryClose(pQuery->u.compound.pRight);
+    clearResultList(&pQuery->u.compound.left);
+    clearResultList(&pQuery->u.compound.right);
+    xjd1JsonFree(pQuery->u.compound.pOut);
+    pQuery->u.compound.pOut = 0;
   }
   return rc;
 }

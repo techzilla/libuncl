@@ -405,8 +405,7 @@ select(A) ::= eselect(X) UNION ALL(OP) eselect(Y). {A=compoundQuery(p,X,@OP,Y);}
 select(A) ::= eselect(X) EXCEPT(OP) eselect(Y).    {A=compoundQuery(p,X,@OP,Y);}
 select(A) ::= eselect(X) INTERSECT(OP) eselect(Y). {A=compoundQuery(p,X,@OP,Y);}
 eselect(A) ::= select(X).                          {A = X;}
-eselect(A) ::= expr(X).       // must be (SELECT...)
-  {A = X->u.subq.p;}
+eselect(A) ::= LP select(X) RP.                    {A = X;}
 
 oneselect(A) ::= SELECT distinct_opt(D) expr_opt(S) from(F) where_opt(W)
                     groupby_opt(G) orderby_opt(O) limit_opt(L).
