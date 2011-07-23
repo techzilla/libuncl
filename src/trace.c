@@ -235,20 +235,6 @@ void xjd1TraceQuery(String *pOut, int indent, const Query *p){
         xjd1TraceExpr(pOut, p->u.simple.pWhere);
         xjd1StringAppendF(pOut, "\n");
       }
-      if( p->u.simple.pOrderBy ){
-        xjd1StringAppendF(pOut, "%*sORDER-BY:\n", indent, "");
-        xjd1TraceExprList(pOut, indent+3, p->u.simple.pOrderBy);
-      }
-      if( p->u.simple.pLimit ){
-        xjd1StringAppendF(pOut, "%*sLIMIT: ", indent, "");
-        xjd1TraceExpr(pOut, p->u.simple.pLimit);
-        xjd1StringAppendF(pOut, "\n");
-      }
-      if( p->u.simple.pOffset ){
-        xjd1StringAppendF(pOut, "%*sOFFSET: ", indent, "");
-        xjd1TraceExpr(pOut, p->u.simple.pOffset);
-        xjd1StringAppendF(pOut, "\n");
-      }
       break;
     }
     default: {
@@ -261,6 +247,21 @@ void xjd1TraceQuery(String *pOut, int indent, const Query *p){
         xjd1TraceQuery(pOut, indent+3, p->u.compound.pRight);
       }
       break;
+    }
+
+    if( p->pOrderBy ){
+      xjd1StringAppendF(pOut, "%*sORDER-BY:\n", indent, "");
+      xjd1TraceExprList(pOut, indent+3, p->pOrderBy);
+    }
+    if( p->pLimit ){
+      xjd1StringAppendF(pOut, "%*sLIMIT: ", indent, "");
+      xjd1TraceExpr(pOut, p->pLimit);
+      xjd1StringAppendF(pOut, "\n");
+    }
+    if( p->pOffset ){
+      xjd1StringAppendF(pOut, "%*sOFFSET: ", indent, "");
+      xjd1TraceExpr(pOut, p->pOffset);
+      xjd1StringAppendF(pOut, "\n");
     }
   }
 }

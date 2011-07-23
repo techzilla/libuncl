@@ -71,12 +71,14 @@ static JsonNode *xCountFinal(void *p){
 
 
 int xjd1AggregateInit(xjd1_stmt *pStmt, Query *pQuery, Expr *p){
-  Aggregate *pAgg = pQuery->pAgg;
-
+  Aggregate *pAgg;
+ 
+  assert( pQuery->eQType==TK_SELECT );
+  pAgg = pQuery->u.simple.pAgg;
   if( pAgg==0 ){
     pAgg = (Aggregate *)xjd1PoolMallocZero(&pStmt->sPool, sizeof(Aggregate));
     if( pAgg==0 ) return XJD1_NOMEM;
-    pQuery->pAgg = pAgg;
+    pQuery->u.simple.pAgg = pAgg;
   }
 
   if( p ){
@@ -212,8 +214,9 @@ int xjd1AggregateFinalize(Aggregate *pAgg){
 ** rewound following an error.
 */
 void xjd1AggregateClear(Query *pQuery){
-  Aggregate *pAgg = pQuery->pAgg;
+  Aggregate *pAgg = pQuery->u.simple.pAgg;
 
+  assert( pQuery->eQType==TK_SELECT );
   if( pAgg ){
     int i;
     for(i=0; i<pAgg->nExpr; i++){
@@ -247,7 +250,7 @@ JsonNode *xjd1FunctionEval(Expr *p){
       xjd1JsonFree(p->u.func.apArg[i]);
     }
   }else{
-    AggExpr *pAggExpr = &p->pQuery->pAgg->aAggExpr[p->u.func.iAgg];
+    AggExpr *pAggExpr = &p->pQuery->u.simple.pAgg->aAggExpr[p->u.func.iAgg];
     pRet = xjd1JsonRef(pAggExpr->pValue);
   }
 

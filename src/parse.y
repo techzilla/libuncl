@@ -338,8 +338,10 @@ cmd(A) ::= select(X).  {
 %left UNION EXCEPT.
 %left INTERSECT.
 %type select {Query*}
-%type eselect {Query*}
-%type oneselect {Query*}
+%type selectcore {Query*}
+%type compound {Query*}
+%type esel {Query*}
+%type x {Query*}
 
 %include {
   /* The value of a LIMIT ... OFFSET ... clause. */
@@ -361,9 +363,7 @@ cmd(A) ::= select(X).  {
     Expr *pRes,
     DataSrc *pFrom,
     Expr *pWhere,
-    GroupByHaving *pGroupBy,
-    ExprList *pOrderBy,
-    LimitOffset *pLimit
+    GroupByHaving *pGroupBy
   ){
     Query *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
@@ -374,9 +374,6 @@ cmd(A) ::= select(X).  {
       pNew->u.simple.pWhere = pWhere;
       pNew->u.simple.pGroupBy = pGroupBy ? pGroupBy->pGroupBy : 0;
       pNew->u.simple.pHaving = pGroupBy ? pGroupBy->pHaving : 0;
-      pNew->u.simple.pOrderBy = pOrderBy;
-      pNew->u.simple.pLimit = pLimit ? pLimit->pLimit : 0;
-      pNew->u.simple.pOffset = pLimit ? pLimit->pOffset : 0;
     }
     return pNew;
   }
@@ -399,23 +396,40 @@ cmd(A) ::= select(X).  {
 }
 
 
-select(A) ::= oneselect(X).                        {A = X;}
-select(A) ::= eselect(X) UNION(OP) eselect(Y).     {A=compoundQuery(p,X,@OP,Y);}
-select(A) ::= eselect(X) UNION ALL(OP) eselect(Y). {A=compoundQuery(p,X,@OP,Y);}
-select(A) ::= eselect(X) EXCEPT(OP) eselect(Y).    {A=compoundQuery(p,X,@OP,Y);}
-select(A) ::= eselect(X) INTERSECT(OP) eselect(Y). {A=compoundQuery(p,X,@OP,Y);}
-eselect(A) ::= select(X).                          {A = X;}
-eselect(A) ::= LP select(X) RP.                    {A = X;}
 
-oneselect(A) ::= SELECT distinct_opt(D) expr_opt(S) from(F) where_opt(W)
-                    groupby_opt(G) orderby_opt(O) limit_opt(L).
-  {A = simpleQuery(p,D,S,F,W,&G,O,&L);}
+select(A) ::= compound(Q) orderby_opt(O) limit_opt(L). {
+  Q->pOrderBy = O;
+  Q->pLimit = L.pLimit;
+  Q->pOffset = L.pOffset;
+  A = Q;
+}
+compound(A) ::= selectcore(X).                 {A = X;}
+compound(A) ::= esel(X) UNION(OP) esel(Y).     {A=compoundQuery(p,X,@OP,Y);}
+compound(A) ::= esel(X) UNION ALL(OP) esel(Y). {A=compoundQuery(p,X,@OP,Y);}
+compound(A) ::= esel(X) EXCEPT(OP) esel(Y).    {A=compoundQuery(p,X,@OP,Y);}
+compound(A) ::= esel(X) INTERSECT(OP) esel(Y). {A=compoundQuery(p,X,@OP,Y);}
+esel(A) ::= compound(X).                       {A = X;}
+esel(A) ::= expr(X). {
+  /* TODO: Fix these error messages */
+  if( X->eClass!=XJD1_EXPR_Q ){
+    xjd1ParseError(p, XJD1_SYNTAX, "syntax error");
+  }else{
+    A = X->u.subq.p;
+    if( A->pOrderBy || A->pLimit ){
+      xjd1ParseError(p, XJD1_SYNTAX, "syntax error");
+    }
+  }
+}
+
+selectcore(A) ::= SELECT 
+  dist_opt(D) expr_opt(S) from(F) where_opt(W) groupby_opt(G).
+  {A = simpleQuery(p,D,S,F,W,&G);}
 
 
-%type distinct_opt {int}
-distinct_opt(A) ::= .                    {A = 0;}
-distinct_opt(A) ::= DISTINCT.            {A = 1;}
-distinct_opt(A) ::= ALL.                 {A = 0;}
+%type dist_opt {int}
+dist_opt(A) ::= .                    {A = 0;}
+dist_opt(A) ::= DISTINCT.            {A = 1;}
+dist_opt(A) ::= ALL.                 {A = 0;}
 
 // The result set of an expression can be either an JSON expression
 // or nothing.

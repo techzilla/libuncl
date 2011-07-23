@@ -282,18 +282,15 @@ struct Query {
       Expr *pWhere;               /* The WHERE clause */
       ExprList *pGroupBy;         /* The GROUP BY clause */
       Expr *pHaving;              /* The HAVING clause */
-      ExprList *pOrderBy;         /* The ORDER BY clause */
-      Expr *pLimit;               /* The LIMIT clause */
-      Expr *pOffset;              /* The OFFSET clause */
+      Aggregate *pAgg;            /* Aggregation info. 0 for non-aggregates */
+      ResultList grouped;         /* Grouped results, for GROUP BY queries */
+      ResultList distincted;      /* Distinct results */
     } simple;
   } u;
-
-  Aggregate *pAgg;                /* Aggregation info. 0 for non-aggregates */
-  ResultList grouped;             /* Grouped results, for GROUP BY queries */
-  ResultList distincted;          /* Distinct results */
-
+  ExprList *pOrderBy;             /* The ORDER BY clause */
+  Expr *pLimit;                   /* The LIMIT clause */
+  Expr *pOffset;                  /* The OFFSET clause */
   int eDocFrom;                   /* XJD1_FROM_* - configures xjd1QueryDoc() */
-
   ResultList ordered;             /* Query results in sorted order */
   int bLimitValid;                /* Set to true after nLimit is set */
   int nLimit;                     /* Stop after returning this many more rows */
