@@ -20,6 +20,12 @@
 <a name="drop-collection-stmt"></a>
 <h3>drop-collection-stmt:</h3>
 <img src="drop-collection-stmt.gif">
+<a name="create-index-stmt"></a>
+<h3>create-index-stmt:</h3>
+<img src="create-index-stmt.gif">
+<a name="drop-index-stmt"></a>
+<h3>drop-index-stmt:</h3>
+<img src="drop-index-stmt.gif">
 <a name="insert-stmt"></a>
 <h3>insert-stmt:</h3>
 <img src="insert-stmt.gif">

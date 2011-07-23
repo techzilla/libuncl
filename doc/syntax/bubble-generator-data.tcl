@@ -17,6 +17,8 @@ set all_graphs {
          select-stmt
          create-collection-stmt
          drop-collection-stmt
+         create-index-stmt
+         drop-index-stmt
          insert-stmt
          update-stmt
          delete-stmt
@@ -70,6 +72,15 @@ set all_graphs {
 
   drop-collection-stmt {
     line DROP COLLECTION {optx IF EXISTS} /collection-name
+  }
+
+  create-index-stmt {
+    line CREATE {or {} SPATIAL FULLTEXT} INDEX /index-name
+         ON expr
+  }
+
+  drop-index-stmt {
+    line DROP INDEX /index-name
   }
 
   insert-stmt {
