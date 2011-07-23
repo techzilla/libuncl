@@ -1,0 +1,43 @@
+
+.new t1.db
+
+
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {i:2};
+INSERT INTO c1 VALUE {i:1};
+INSERT INTO c1 VALUE {i:4};
+INSERT INTO c1 VALUE {i:3};
+CREATE COLLECTION c2;
+INSERT INTO c2 VALUE {i:3};
+INSERT INTO c2 VALUE {i:5};
+INSERT INTO c2 VALUE {i:2};
+INSERT INTO c2 VALUE {i:4};
+INSERT INTO c2 VALUE {i:3};
+
+.testcase 2
+SELECT x.i FROM c1 AS x UNION ALL SELECT x.i FROM c2 AS x;
+.result 2 1 4 3 3 5 2 4 3
+
+.testcase 3
+SELECT x.i FROM c1 AS x UNION ALL SELECT x.i FROM c2 AS x ORDER BY x;
+.result 1 2 2 3 3 3 4 4 5
+
+.testcase 4
+SELECT x.i FROM c1 AS x UNION ALL (SELECT x.i FROM c2 AS x);
+.result 2 1 4 3 3 5 2 4 3
+
+.testcase 5
+SELECT x.i FROM c1 AS x UNION SELECT x.i FROM c2 AS x;
+.result 1 2 3 4 5
+
+.testcase 6
+SELECT x.i FROM c1 AS x INTERSECT SELECT x.i FROM c2 AS x;
+.result 2 3 4
+
+.testcase 7
+SELECT x.i FROM c1 AS x EXCEPT SELECT x.i FROM c2 AS x;
+.result 1
+
+.testcase 8
+SELECT c1.i AS abc FROM c1;
+.result 2 1 4 3
