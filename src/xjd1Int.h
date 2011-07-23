@@ -278,6 +278,7 @@ struct Query {
     struct {                    /* For simple queries */
       int isDistinct;             /* True if the DISTINCT keyword is present */
       Expr *pRes;                 /* Result JSON string */
+      const char *zAs;            /* Alias assigned to result object (if any) */
       DataSrc *pFrom;             /* The FROM clause */
       Expr *pWhere;               /* The WHERE clause */
       ExprList *pGroupBy;         /* The GROUP BY clause */

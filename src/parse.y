@@ -361,6 +361,7 @@ cmd(A) ::= select(X).  {
     Parse *p,
     int isDistinct,
     Expr *pRes,
+    const char *zAs,
     DataSrc *pFrom,
     Expr *pWhere,
     GroupByHaving *pGroupBy
@@ -370,6 +371,7 @@ cmd(A) ::= select(X).  {
       pNew->eQType = TK_SELECT;
       pNew->u.simple.isDistinct = isDistinct;
       pNew->u.simple.pRes = pRes;
+      pNew->u.simple.zAs = zAs;
       pNew->u.simple.pFrom = pFrom;
       pNew->u.simple.pWhere = pWhere;
       pNew->u.simple.pGroupBy = pGroupBy ? pGroupBy->pGroupBy : 0;
@@ -422,8 +424,8 @@ esel(A) ::= expr(X). {
 }
 
 selectcore(A) ::= SELECT 
-  dist_opt(D) expr_opt(S) from(F) where_opt(W) groupby_opt(G).
-  {A = simpleQuery(p,D,S,F,W,&G);}
+  dist_opt(D) sel_result(S) from(F) where_opt(W) groupby_opt(G).
+  {A = simpleQuery(p,D,S.pExpr,S.zAs,F,W,&G);}
 
 
 %type dist_opt {int}
@@ -432,11 +434,13 @@ dist_opt(A) ::= DISTINCT.            {A = 1;}
 dist_opt(A) ::= ALL.                 {A = 0;}
 
 // The result set of an expression can be either an JSON expression
-// or nothing.
+// or nothing. If it is a JSON expression, it may be given an alias
+// using the "AS <id>" syntax.
 //
-%type expr_opt {Expr*}
-expr_opt(A) ::= .                       {A = 0;}
-expr_opt(A) ::= expr(X).                {A = X;}
+%type sel_result {ExprItem}
+sel_result(A) ::= .                       {A.pExpr=0;A.zAs=0;}
+sel_result(A) ::= expr(X).                {A.pExpr=X;A.zAs=0;}
+sel_result(A) ::= expr(X) AS ID(Y).       {A.pExpr=X;A.zAs=tokenStr(p, &Y);}
 
 // A complete FROM clause.
 //
