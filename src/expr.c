@@ -102,6 +102,67 @@ static int walkExpr(Expr *p, WalkAction *pAction){
   return rc;
 }
 
+static int exprResolve(Expr *p, WalkAction *pAction){
+  int eExpr = *(int *)pAction->pArg;
+  const char *zDoc;
+
+  assert( eExpr>0 || (pAction->pQuery==0 && pAction->pStmt) );
+
+  zDoc = p->u.id.zId;
+  if( eExpr==0 ){
+    Command *pCmd = pAction->pStmt->pCmd;
+    switch( pCmd->eCmdType ){
+      case TK_DELETE:
+        if( 0==strcmp(zDoc, pCmd->u.del.zName) ) return XJD1_OK;
+        break;
+      case TK_UPDATE:
+        if( 0==strcmp(zDoc, pCmd->u.update.zName) ) return XJD1_OK;
+        break;
+
+      default:
+        assert( 0 );
+        break;
+    }
+  }else{
+    Query *pQuery = pAction->pQuery;
+    int bFound = 0;
+
+    assert( pQuery->eQType==TK_SELECT || eExpr==XJD1_EXPR_ORDERBY );
+
+    /* Search the FROM clause. */
+    if( pQuery->eQType==TK_SELECT && (
+          eExpr==XJD1_EXPR_RESULT  || eExpr==XJD1_EXPR_WHERE ||
+          eExpr==XJD1_EXPR_GROUPBY || eExpr==XJD1_EXPR_HAVING ||
+          eExpr==XJD1_EXPR_ORDERBY
+    )){
+      int iDatasrc = xjd1DataSrcResolve(pQuery->u.simple.pFrom, zDoc);
+      if( iDatasrc ){
+        p->u.id.iDatasrc = iDatasrc;
+        bFound = 1;
+      }
+    }
+
+    /* Match against any 'AS' alias on the query result */
+    if( bFound==0 && pQuery->zAs ){
+      if( eExpr==XJD1_EXPR_ORDERBY 
+       || eExpr==XJD1_EXPR_HAVING
+       || (eExpr==XJD1_EXPR_WHERE && pQuery->u.simple.pAgg==0)
+      ){
+        if( 0==strcmp(zDoc, pQuery->zAs) ){
+          bFound = 1;
+        }
+      }
+    }
+
+    if( bFound ){
+      p->u.id.pQuery = pQuery;
+      return XJD1_OK;
+    }
+  }
+
+  xjd1StmtError(pAction->pStmt, XJD1_ERROR, "no such object: %s", zDoc);
+  return XJD1_ERROR;
+}
 
 /*
 ** Callback for query expressions
@@ -117,8 +178,13 @@ static int walkInitCallback(Expr *p, WalkAction *pAction){
       break;
 
     case XJD1_EXPR_FUNC: {
-      int bAggOk = *(int *)pAction->pArg;
-      rc = xjd1FunctionInit(p, pAction->pStmt, pAction->pQuery, bAggOk);
+      int eExpr = *(int *)pAction->pArg;
+      rc = xjd1FunctionInit(p, pAction->pStmt, pAction->pQuery, eExpr);
+      break;
+    }
+
+    case XJD1_EXPR_TK: {
+      rc = exprResolve(p, pAction);
       break;
     }
 
@@ -138,14 +204,14 @@ int xjd1ExprInit(
   Expr *p,                        /* Expression to initialize */
   xjd1_stmt *pStmt,               /* Statement expression belongs to */
   Query *pQuery,                  /* Query expression belongs to (or NULL) */
-  int bAggOk                      /* True if an aggregate function is Ok */
+  int eExpr                       /* How the expression features in the query */
 ){
   WalkAction sAction;
   memset(&sAction, 0, sizeof(sAction));
   sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
-  sAction.pArg = (void *)&bAggOk;
+  sAction.pArg = (void *)&eExpr;
   return walkExpr(p, &sAction);
 }
 
@@ -153,14 +219,14 @@ int xjd1ExprInit(
 ** Initialize a list of expression in preparation for evaluation of a
 ** statement.
 */
-int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
+int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery, int eExpr){
   WalkAction sAction;
-  assert( bAggOk==0 || pQuery );
+  assert( eExpr==0 || pQuery );
   memset(&sAction, 0, sizeof(sAction));
   sAction.xNodeAction = walkInitCallback;
   sAction.pStmt = pStmt;
   sAction.pQuery = pQuery;
-  sAction.pArg = (int *)&bAggOk;
+  sAction.pArg = (int *)&eExpr;
   return walkExprList(p, &sAction);
 }
 
@@ -478,9 +544,9 @@ JsonNode *xjd1ExprEval(Expr *p){
 
     case TK_ID: {
       if( p->pQuery ){
-        return xjd1QueryDoc(p->pQuery, p->u.id.zId);
+        return xjd1QueryDoc(p->pQuery, p->u.id.iDatasrc);
       }else{
-        return xjd1StmtDoc(p->pStmt, p->u.id.zId);
+        return xjd1StmtDoc(p->pStmt);
       }
     }
 

@@ -292,7 +292,7 @@ char *xjd1_stmt_debug_listing(xjd1_stmt *p){
 **
 ** The caller is responsible for invoking xjd1JsonFree() on the result.
 */
-JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
+JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt){
   Command *pCmd;
   JsonNode *pRes = 0;
   if( pStmt==0 ) return 0;
@@ -300,7 +300,7 @@ JsonNode *xjd1StmtDoc(xjd1_stmt *pStmt, const char *zDocName){
   if( pCmd==0 ) return 0;
   switch( pCmd->eCmdType ){
     case TK_SELECT: {
-      pRes = xjd1QueryDoc(pCmd->u.q.pQuery, zDocName);
+      pRes = xjd1QueryDoc(pCmd->u.q.pQuery, 0);
       break;
     }
     case TK_UPDATE:

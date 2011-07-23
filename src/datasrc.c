@@ -245,3 +245,53 @@ JsonNode *xjd1DataSrcCacheRead(
   return cacheReadRecursive(p, &pp, zDocname);
 }
 
+static int datasrcResolveRecursive(
+  DataSrc *p, 
+  int *piEntry, 
+  const char *zDocname
+){
+  int ret = 0;
+  if( p->eDSType==TK_COMMA ){
+    ret = datasrcResolveRecursive(p->u.join.pLeft, piEntry, zDocname);
+    if( 0==ret ){
+      ret = datasrcResolveRecursive(p->u.join.pRight, piEntry, zDocname);
+    }
+  }else{
+    if( (p->zAs && 0==strcmp(zDocname, p->zAs))
+     || (p->zAs==0 && p->eDSType==TK_ID && strcmp(p->u.tab.zName, zDocname)==0)
+    ){
+      ret = *piEntry;
+    }
+    (*piEntry)++;
+  }
+  return ret;
+}
+int xjd1DataSrcResolve(DataSrc *p, const char *zDocname){
+  int iEntry = 1;
+  return datasrcResolveRecursive(p, &iEntry, zDocname);
+}
+
+static JsonNode *datasrcReadRecursive(
+  DataSrc *p, 
+  int *piEntry, 
+  int iDoc
+){
+  JsonNode *pRet = 0;
+  if( p->eDSType==TK_COMMA ){
+    pRet = datasrcReadRecursive(p->u.join.pLeft, piEntry, iDoc);
+    if( 0==pRet ){
+      pRet = datasrcReadRecursive(p->u.join.pRight, piEntry, iDoc);
+    }
+  }else{
+    if( *piEntry==iDoc ){
+      pRet = xjd1JsonRef(p->pValue);
+    }
+    (*piEntry)++;
+  }
+  return pRet;
+}
+JsonNode *xjd1DataSrcRead(DataSrc *p, int iDoc){
+  int iEntry = 1;
+  return datasrcReadRecursive(p, &iEntry, iDoc);
+}
+

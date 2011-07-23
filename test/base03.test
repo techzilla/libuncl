@@ -15,10 +15,10 @@ SELECT {x: c1.a==7 ? c1.b : c1.c} FROM c1;
 .result {"x":3} {"x":6} {"x":8} {"x":12}
 
 .testcase 120
-SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)==9;
+SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c1.c)==9;
 .result
 .testcase 121
-SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c2.c)!=8;
+SELECT c1.a FROM c1 WHERE (c1.a==7 ? c1.b : c1.c)!=8;
 .result 1 4 10
 
 .testcase 200

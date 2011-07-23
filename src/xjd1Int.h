@@ -150,7 +150,23 @@ struct ExprList {
   ExprItem *apEItem;        /* The expression in the list */
 };
 
-/* A node of an expression */
+/* 
+** A node of an expression.
+**
+** If (eClass==EXPR_TK), then this node is a reference to a data-source, or
+** if the expression is part of a SELECT query, to the result of the query
+** itself. If this expression is part of any type of statement other than a 
+** SELECT, then iDatasrc and pQuery are both set to 0. In that case there is
+** only one data-source to which the expression could refer.
+**
+** If the expression is part of a SELECT and the iDatasrc field is set to
+** 0, then the expression refers to the return value of the SELECT statement
+** pQuery. pQuery may point to the simple SELECT that the expression is part 
+** of, or to some other SELECT statement if the expression is part of a
+** correlated sub-select. If iDatasrc is set to N, where N is 1 or greater, 
+** it refers to the Nth data-source joined together in the FROM clause of 
+** pQuery, counting from left to right.
+*/
 struct Expr {
   u16 eType;                /* Expression node type */
   u16 eClass;               /* Expression class */
@@ -167,6 +183,8 @@ struct Expr {
     } lvalue;
     struct {                /* Identifiers */
       char *zId;               /* token value.  eClass=EXPR_TK */
+      int iDatasrc;
+      Query *pQuery;
     } id;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       char *zFName;            /* Name of the function */
@@ -278,7 +296,6 @@ struct Query {
     struct {                    /* For simple queries */
       int isDistinct;             /* True if the DISTINCT keyword is present */
       Expr *pRes;                 /* Result JSON string */
-      const char *zAs;            /* Alias assigned to result object (if any) */
       DataSrc *pFrom;             /* The FROM clause */
       Expr *pWhere;               /* The WHERE clause */
       ExprList *pGroupBy;         /* The GROUP BY clause */
@@ -288,6 +305,7 @@ struct Query {
       ResultList distincted;      /* Distinct results */
     } simple;
   } u;
+  const char *zAs;                /* Alias assigned to result object (if any) */
   ExprList *pOrderBy;             /* The ORDER BY clause */
   Expr *pLimit;                   /* The LIMIT clause */
   Expr *pOffset;                  /* The OFFSET clause */
@@ -388,6 +406,8 @@ JsonNode *xjd1DataSrcDoc(DataSrc*, const char*);
 int xjd1DataSrcCount(DataSrc *);
 JsonNode *xjd1DataSrcCacheRead(DataSrc *, JsonNode **, const char *zDocname);
 void xjd1DataSrcCacheSave(DataSrc *, JsonNode **);
+int xjd1DataSrcResolve(DataSrc *, const char *zDocname);
+JsonNode *xjd1DataSrcRead(DataSrc *, int);
 
 /******************************** delete.c ***********************************/
 int xjd1DeleteStep(xjd1_stmt*);
@@ -399,6 +419,14 @@ JsonNode *xjd1ExprEval(Expr*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
 int xjd1ExprListClose(ExprList*);
+/* Candidates for the 4th parameter to xjd1ExprInit() */
+#define XJD1_EXPR_RESULT  1
+#define XJD1_EXPR_WHERE   2
+#define XJD1_EXPR_GROUPBY 3
+#define XJD1_EXPR_HAVING  4
+#define XJD1_EXPR_ORDERBY 5
+#define XJD1_EXPR_LIMIT   6
+#define XJD1_EXPR_OFFSET  7
 
 /******************************** json.c *************************************/
 JsonNode *xjd1JsonParse(const char *zIn, int mxIn);
@@ -429,10 +457,10 @@ int xjd1QueryInit(Query*,xjd1_stmt*,Query*);
 int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
 int xjd1QueryClose(Query*);
-JsonNode *xjd1QueryDoc(Query*, const char*);
+JsonNode *xjd1QueryDoc(Query*, int);
 
 /******************************** stmt.c *************************************/
-JsonNode *xjd1StmtDoc(xjd1_stmt*, const char*);
+JsonNode *xjd1StmtDoc(xjd1_stmt*);
 void xjd1StmtError(xjd1_stmt *,int,const char*,...);
 
 /******************************** string.c ***********************************/

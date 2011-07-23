@@ -166,28 +166,36 @@ static void clearResultList(ResultList *pList){
 ** Called after statement parsing to initalize every Query object
 ** within the statement.
 */
-int xjd1QueryInit(Query *pQuery, xjd1_stmt *pStmt, Query *pOuter){
+int xjd1QueryInit(Query *p, xjd1_stmt *pStmt, Query *pOuter){
   int rc;
-  if( pQuery==0 ) return XJD1_OK;
-  pQuery->pStmt = pStmt;
-  pQuery->pOuter = pOuter;
-  if( pQuery->eQType==TK_SELECT ){
-    rc = xjd1ExprInit(pQuery->u.simple.pRes, pStmt, pQuery, 1);
-    if( !rc ) rc = xjd1DataSrcInit(pQuery->u.simple.pFrom, pQuery);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pWhere, pStmt, pQuery, 0);
-    if( !rc ) rc = xjd1ExprListInit(pQuery->u.simple.pGroupBy, pStmt, pQuery,0);
-    if( !rc ) rc = xjd1ExprInit(pQuery->u.simple.pHaving, pStmt, pQuery, 1);
-    if( !rc && pQuery->u.simple.pGroupBy ){ 
-      rc = xjd1AggregateInit(pStmt, pQuery, 0);
+  if( p==0 ) return XJD1_OK;
+  p->pStmt = pStmt;
+  p->pOuter = pOuter;
+  if( p->eQType==TK_SELECT ){
+    rc = xjd1ExprInit(p->u.simple.pRes, pStmt, p, XJD1_EXPR_RESULT);
+    if( !rc ){
+      rc = xjd1DataSrcInit(p->u.simple.pFrom, p);
+    }
+    if( !rc ){
+      rc = xjd1ExprInit(p->u.simple.pWhere, pStmt, p, XJD1_EXPR_WHERE);
+    }
+    if( !rc ){
+      rc = xjd1ExprListInit(p->u.simple.pGroupBy, pStmt, p, XJD1_EXPR_GROUPBY);
+    }
+    if( !rc ){
+      rc = xjd1ExprInit(p->u.simple.pHaving, pStmt, p, XJD1_EXPR_HAVING);
+    }
+    if( !rc && p->u.simple.pGroupBy ){ 
+      rc = xjd1AggregateInit(pStmt, p, 0);
     }
   }else{
-    rc = xjd1QueryInit(pQuery->u.compound.pLeft, pStmt, pOuter);
-    if( !rc ) rc = xjd1QueryInit(pQuery->u.compound.pRight, pStmt, pOuter);
+    rc = xjd1QueryInit(p->u.compound.pLeft, pStmt, pOuter);
+    if( !rc ) rc = xjd1QueryInit(p->u.compound.pRight, pStmt, pOuter);
   }
 
-  if( !rc ) rc = xjd1ExprListInit(pQuery->pOrderBy, pStmt, pQuery,1);
-  if( !rc ) rc = xjd1ExprInit(pQuery->pLimit, pStmt, pQuery, 0);
-  if( !rc ) rc = xjd1ExprInit(pQuery->pOffset, pStmt, pQuery, 0);
+  if( !rc ) rc = xjd1ExprListInit(p->pOrderBy, pStmt, p, XJD1_EXPR_ORDERBY);
+  if( !rc ) rc = xjd1ExprInit(p->pLimit, pStmt, p, XJD1_EXPR_LIMIT);
+  if( !rc ) rc = xjd1ExprInit(p->pOffset, pStmt, p, XJD1_EXPR_OFFSET);
   return rc;
 }
 
@@ -651,60 +659,44 @@ int xjd1QueryStep(Query *p){
 **
 ** The caller must invoke JsonFree() when it is done with this value.
 */
-JsonNode *xjd1QueryDoc(Query *p, const char *zDocName){
+JsonNode *xjd1QueryDoc(Query *p, int iDoc){
   JsonNode *pOut = 0;
   if( p ){
-    if( p->eQType==TK_SELECT ){
+    if( p->eDocFrom==XJD1_FROM_ORDERED ){
+      assert( iDoc==0 && p->ordered.pItem );
+      pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
+    }else if( p->eQType==TK_SELECT ){
       switch( p->eDocFrom ){
-        case XJD1_FROM_ORDERED:
-          assert( zDocName==0 && p->ordered.pItem );
-          pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
-          break;
-
         case XJD1_FROM_DISTINCTED:
-          if( zDocName==0 ){
-            pOut = xjd1JsonRef(p->u.simple.distincted.pItem->apKey[0]);
-          }else{
-            JsonNode **apSrc = &p->u.simple.distincted.pItem->apKey[1];
-            pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom, apSrc, zDocName);
-          }
+          pOut = xjd1JsonRef(p->u.simple.distincted.pItem->apKey[iDoc]);
           break;
 
         case XJD1_FROM_GROUPED:
-          if( zDocName==0 && p->u.simple.pRes ){
+          if( iDoc==0 && p->u.simple.pRes ){
             pOut = xjd1ExprEval(p->u.simple.pRes);
           }else{
             JsonNode **apSrc = p->u.simple.grouped.pItem->apKey;
             if( p->u.simple.pGroupBy ){
               apSrc = &apSrc[p->u.simple.pGroupBy->nEItem];
             }
-            pOut = xjd1DataSrcCacheRead(p->u.simple.pFrom, apSrc, zDocName);
+            pOut = xjd1JsonRef(apSrc[(iDoc?iDoc-1:0)]);
           }
           break;
 
         case XJD1_FROM_DATASRC:
-          if( zDocName==0 && p->u.simple.pRes ){
+          if( iDoc==0 && p->u.simple.pRes ){
             pOut = xjd1ExprEval(p->u.simple.pRes);
           }else{
-            pOut = xjd1DataSrcDoc(p->u.simple.pFrom, zDocName);
+            pOut = xjd1DataSrcRead(p->u.simple.pFrom, (iDoc ? iDoc : 1));
           }
           break;
       }
     }else{
-      if( p->eDocFrom==XJD1_FROM_ORDERED ){
-        assert( zDocName==0 && p->ordered.pItem );
-        pOut = xjd1JsonRef(p->ordered.pItem->apKey[p->ordered.nKey-1]);
-      }else{
-        pOut = xjd1JsonRef(p->u.compound.pOut);
-      }
+      assert( iDoc==0 );
+      pOut = xjd1JsonRef(p->u.compound.pOut);
     }
 
-    /* If no document has been found and this is a sub-query, search the 
-    ** parent query for a document of the specified name. 
-    */
-    if( pOut==0 && zDocName ){
-      pOut = xjd1QueryDoc(p->pOuter, zDocName);
-    }
+
   }
   return pOut;
 }

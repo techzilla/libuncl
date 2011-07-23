@@ -1,0 +1,26 @@
+
+.new t1.db
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE { i:3, z:"three" };
+INSERT INTO c1 VALUE { i:1, z:"one" };
+INSERT INTO c1 VALUE { i:2, z:"two" };
+INSERT INTO c1 VALUE { i:4, z:"four" };
+
+.testcase 1
+SELECT FROM c1 LIMIT c1.x;
+.error ERROR no such object: c1
+
+.testcase 2
+SELECT c2 FROM c1;
+.error ERROR no such object: c2
+
+.testcase 3
+SELECT count(c2) FROM c1 AS c2;
+.error 4
+
+.testcase 4
+SELECT count(c1) FROM c1 AS c2;
+.error ERROR no such object: c1
+
+
+

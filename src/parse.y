@@ -371,7 +371,7 @@ cmd(A) ::= select(X).  {
       pNew->eQType = TK_SELECT;
       pNew->u.simple.isDistinct = isDistinct;
       pNew->u.simple.pRes = pRes;
-      pNew->u.simple.zAs = zAs;
+      pNew->zAs = zAs;
       pNew->u.simple.pFrom = pFrom;
       pNew->u.simple.pWhere = pWhere;
       pNew->u.simple.pGroupBy = pGroupBy ? pGroupBy->pGroupBy : 0;
@@ -392,6 +392,7 @@ cmd(A) ::= select(X).  {
       pNew->eQType = eOp;
       pNew->u.compound.pLeft = pLeft;
       pNew->u.compound.pRight = pRight;
+      pNew->zAs = pLeft->zAs;
     }
     return pNew;
   }

@@ -107,7 +107,7 @@ SELECT 67 - 2 FROM c1;
 .testcase 16
 SELECT 1.12;
 SELECT "hello world";
-SELECT a;
+SELECT ;
 SELECT { x: "value" };
 SELECT [1,4,9,16,25];
 SELECT null;
@@ -161,13 +161,15 @@ SELECT x.two FROM c3 AS x;
 
 .testcase 21
 SELECT c3.one FROM c3 AS x;
-SELECT c3.two FROM c3 AS x;
-.result null null
+.error ERROR no such object: c3
 
 .testcase 22
 SELECT x FROM c3 AS x;
+.result {"one":1,"two":2} 
+
+.testcase 22b
 SELECT c3 FROM c3 AS x;
-.result {"one":1,"two":2} null
+.error ERROR no such object: c3
 
 .testcase 23
 SELECT FROM (SELECT FROM c3) AS x;
@@ -188,9 +190,9 @@ SELECT x["one"] FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
 
 .testcase 27
 SELECT c3 FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
-.result null
+.error ERROR no such object: c3
 
 .testcase 28
 SELECT xyz FROM (SELECT {one:c3.two, two:c3.one} FROM c3) AS x;
-.result null
+.error ERROR no such object: xyz
 

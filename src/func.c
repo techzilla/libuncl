@@ -111,11 +111,12 @@ int xjd1AggregateInit(xjd1_stmt *pStmt, Query *pQuery, Expr *p){
 ** is returned. Otherwise, an error code is returned and an error left in
 ** the pStmt statement handle.
 */
-int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
+int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int eExpr){
   char *zName;
   int nArg;
   int nByte;
   int i;
+  int bAggOk;
 
   static Function aFunc[] = {
     {  1, "length", xLength, 0, 0 },
@@ -123,7 +124,13 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int bAggOk){
   };
 
   assert( p->eType==TK_FUNCTION && p->eClass==XJD1_EXPR_FUNC );
-  assert( pQuery || bAggOk==0 );
+  assert( pQuery || eExpr==0 );
+
+  /* Set bAggOk to true if aggregate functions may be used in this context. */
+  bAggOk = (pQuery && pQuery->eQType==TK_SELECT
+        && (eExpr==XJD1_EXPR_RESULT || eExpr==XJD1_EXPR_GROUPBY 
+         || eExpr==XJD1_EXPR_HAVING || eExpr==XJD1_EXPR_ORDERBY 
+  ));
 
   zName = p->u.func.zFName;
   nArg = p->u.func.args->nEItem;
