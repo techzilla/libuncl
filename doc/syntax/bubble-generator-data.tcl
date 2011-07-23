@@ -12,7 +12,7 @@
 
 set all_graphs {
   unql-stmt {
-    line
+    line {opt EXPLAIN}
       {or
          select-stmt
          create-collection-stmt
@@ -71,15 +71,16 @@ set all_graphs {
   }
 
   create-collection-stmt {
-    line CREATE COLLECTION {optx IF NOT EXISTS} /collection-name
+    line CREATE COLLECTION /collection-name
+         {opt {line OPTIONS expr}}
   }
 
   drop-collection-stmt {
-    line DROP COLLECTION {optx IF EXISTS} /collection-name
+    line DROP COLLECTION /collection-name
   }
 
   create-index-stmt {
-    line CREATE INDEX /index-name ON sorting-list
+    line CREATE INDEX /index-name ON ( sorting-list )
          {opt {line OPTIONS expr}}
   }
 
