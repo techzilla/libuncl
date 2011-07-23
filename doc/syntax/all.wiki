@@ -14,6 +14,9 @@
 <a name="compound-operator"></a>
 <h3>compound-operator:</h3>
 <img src="compound-operator.gif">
+<a name="sorting-list"></a>
+<h3>sorting-list:</h3>
+<img src="sorting-list.gif">
 <a name="create-collection-stmt"></a>
 <h3>create-collection-stmt:</h3>
 <img src="create-collection-stmt.gif">

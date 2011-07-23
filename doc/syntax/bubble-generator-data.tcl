@@ -32,13 +32,13 @@ set all_graphs {
   select-stmt {
     stack
        {loop {line select-core nil} {nil compound-operator nil}}
-       {optx ORDER BY {loop expr ,}}
+       {optx ORDER BY sorting-list}
        {optx LIMIT expr {optx OFFSET expr}}
   }
 
   select-core {
      stack
-       {line SELECT {opt DISTINCT} {opt expr} {opt {line AS /name}}} 
+       {line SELECT {or {} DISTINCT ALL} {opt expr} {opt {line AS /name}}} 
        {optx FROM {loop { line data-source {opt AS /name} } ,}}
        {optx WHERE expr}
        {optx GROUP BY {loop expr ,} {optx HAVING expr}}
@@ -66,6 +66,10 @@ set all_graphs {
      or {line UNION {optx ALL}} INTERSECT EXCEPT
   }
 
+  sorting-list {
+     loop {line expr {or {} ASC DESC}} ,
+  }
+
   create-collection-stmt {
     line CREATE COLLECTION {optx IF NOT EXISTS} /collection-name
   }
@@ -75,8 +79,8 @@ set all_graphs {
   }
 
   create-index-stmt {
-    line CREATE {or {} SPATIAL FULLTEXT} INDEX /index-name
-         ON expr
+    line CREATE INDEX /index-name ON sorting-list
+         {opt {line OPTIONS expr}}
   }
 
   drop-index-stmt {
