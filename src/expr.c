@@ -212,6 +212,45 @@ int xjd1ExprInit(
   return walkExpr(p, walkInitCallback, (void *)&sCtx);
 }
 
+typedef struct FlattenCtx FlattenCtx;
+struct FlattenCtx {
+  DataSrc *pSrc;
+  xjd1_stmt *pStmt;
+  char *zAs;
+  const char *zOp;
+};
+
+static int walkInitFlattenCallback(Expr *p, void *pArg){
+  FlattenCtx *pCtx = (FlattenCtx *)pArg;
+  int rc = XJD1_OK;
+  switch( p->eType ){
+    case TK_ID:
+      p->u.id.pDataSrc = pCtx->pSrc;
+      pCtx->zAs = p->u.id.zId;
+      break;
+
+    default: {
+      const char *zErrMsg = "error in %s expression";
+      xjd1StmtError(pCtx->pStmt, XJD1_ERROR, zErrMsg, pCtx->zOp);
+      rc = XJD1_ERROR;
+      break;
+    }
+  }
+  return rc;
+}
+
+int xjd1FlattenExprInit(Expr *p, DataSrc *pSrc, char **pzAs, const char *zOp){
+  int rc;
+  FlattenCtx sCtx;
+  sCtx.pSrc = pSrc;
+  sCtx.pStmt = pSrc->pQuery->pStmt;
+  sCtx.zAs = 0;
+  sCtx.zOp = zOp;
+  rc = walkExpr(p, walkInitFlattenCallback, (void *)&sCtx);
+  if( *pzAs==0 ) *pzAs = sCtx.zAs;
+  return rc;
+}
+
 /*
 ** Initialize a list of expression in preparation for evaluation of a
 ** statement.
@@ -443,6 +482,7 @@ static int withinOperator(JsonNode *pA, JsonNode *pB){
     }                                                  \
 }
 
+
 /*
 ** Evaluate an expression.  Return the result as a JSON object.
 **
@@ -541,7 +581,12 @@ JsonNode *xjd1ExprEval(Expr *p){
     }
 
     case TK_ID: {
-      if( p->pQuery ){
+      if( p->u.id.pDataSrc ){
+        JsonNode *pVal = xjd1DataSrcRead(p->u.id.pDataSrc, 1);
+        pRes = getProperty(pVal, p->u.id.zId);
+        xjd1JsonFree(pVal);
+        return pRes;
+      }else if( p->pQuery ){
         return xjd1QueryDoc(p->u.id.pQuery, p->u.id.iDatasrc);
       }else{
         return xjd1StmtDoc(p->pStmt);

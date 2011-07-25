@@ -185,6 +185,7 @@ struct Expr {
       char *zId;               /* token value.  eClass=EXPR_TK */
       int iDatasrc;
       Query *pQuery;
+      DataSrc *pDataSrc;       /* Read property from this datasource */
     } id;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       char *zFName;            /* Name of the function */
@@ -340,8 +341,10 @@ struct DataSrc {
     } tab;
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
-      char cOpName;            /* E or F for "EACH" or "FLATTEN" */
+      char cOpName;            /* 'E' or 'F' for "EACH" or "FLATTEN" */
       ExprList *pList;         /* List of arguments */
+      JsonNode *pValue;        /* Value to flatten on (or NULL) */
+      int iIdx;                /* Index of value field just returned */
     } flatten;
     struct {                /* A subquery.  eDSType==TK_SELECT */
       Query *q;                /* The subquery */
@@ -418,6 +421,7 @@ JsonNode *xjd1ExprEval(Expr*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
 int xjd1ExprListClose(ExprList*);
+int xjd1FlattenExprInit(Expr*, DataSrc *, char **, const char *);
 /* Candidates for the 4th parameter to xjd1ExprInit() */
 #define XJD1_EXPR_RESULT  1
 #define XJD1_EXPR_WHERE   2
@@ -439,6 +443,7 @@ JsonNode *xjd1JsonEdit(JsonNode*);
 void xjd1JsonFree(JsonNode*);
 void xjd1JsonToNull(JsonNode*);
 void xjd1DequoteString(char*,int);
+int xjd1JsonInsert(JsonNode *, const char *, JsonNode *);
 
 /******************************** malloc.c ***********************************/
 Pool *xjd1PoolNew(void);

@@ -711,3 +711,51 @@ JsonNode *xjd1JsonParse(const char *zIn, int mxIn){
   tokenNext(&x);
   return parseJson(&x);
 }
+
+/*
+** The JsonNode passed as the first argument must be of type XJD1_STRUCT.
+** This function adds a property to the object. The name of the new 
+** property is passed as the second argument to this function. The third
+** argument is used as the initial value. If the property already exists,
+** it is replaced.
+**
+** This function decrements the reference count of the JsonNode passed
+** as the third argument. This means it is possible to do:
+**
+**     pVal = xjd1JsonNew();            // nRef==1
+**     xjd1JsonInsert(p, "x", pVal);    // Object p assumes ownership of pVal
+**
+** XJD1_OK is returned if the operation is completed successfully. Or
+** XJD1_NOMEM if an OOM error is encountered.
+*/
+int xjd1JsonInsert(JsonNode *p, const char *zLabel, JsonNode *pVal){
+  JsonStructElem *pElem;
+
+  assert( p && p->eJType==XJD1_STRUCT && p->nRef==1 );
+  for(pElem=p->u.st.pFirst; pElem; pElem=pElem->pNext){
+    if( strcmp(zLabel, pElem->zLabel)==0 ) break;
+  }
+  if( pElem ){
+    xjd1_free(pElem->zLabel);
+    xjd1JsonFree(pElem->pValue);
+  }else{
+    pElem = xjd1_malloc(sizeof(*pElem));
+    if( !pElem ){
+      xjd1JsonFree(pVal);
+      return XJD1_NOMEM;
+    }
+
+    if( p->u.st.pLast ){
+      p->u.st.pLast->pNext = pElem;
+    }else{
+      p->u.st.pFirst = pElem;
+    }
+    pElem->pNext = 0;
+    p->u.st.pLast = pElem;
+  }
+
+  pElem->pValue = pVal;
+  pElem->zLabel = xjd1PoolDup(0, zLabel, -1);
+  return (pElem->zLabel ? XJD1_OK : XJD1_NOMEM);
+}
+

@@ -522,11 +522,8 @@ fromitem(A) ::= fromitem(X) FLATTENOP(Y) LP eachexpr_list(Z) RP.
                                                  {A = flattenDataSrc(p,X,&Y,Z);}
 
 %type eachexpr_list {ExprList*}
-eachexpr_list(A) ::= expr(Y).                         {A = apndExpr(p,0,Y,0);}
-eachexpr_list(A) ::= expr(Y) AS ID(Z).                {A = apndExpr(p,0,Y,&Z);}
-eachexpr_list(A) ::= eachexpr_list(X) COMMA expr(Y).  {A = apndExpr(p,X,Y,0);}
-eachexpr_list(A) ::= eachexpr_list(X) COMMA expr(Y) AS ID(Z).
-                                                      {A = apndExpr(p,X,Y,&Z);}
+eachexpr_list(A) ::= lvalue(Y).                  {A = apndExpr(p,0,Y,0);}
+eachexpr_list(A) ::= lvalue(Y) AS ID(Z).         {A = apndExpr(p,0,Y,&Z);}
 
 %type groupby_opt {GroupByHaving}
 groupby_opt(A) ::= .                            {A.pGroupBy=0; A.pHaving=0;}

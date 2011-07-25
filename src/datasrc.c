@@ -18,10 +18,12 @@
 */
 #include "xjd1Int.h"
 
+
 /*
 ** Called after statement parsing to initalize every DataSrc object.
 */
 int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
+  int rc = XJD1_OK;
   p->pQuery = pQuery;
   switch( p->eDSType ){
     case TK_COMMA: {
@@ -41,14 +43,61 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       break;
     }
     case TK_FLATTENOP: {
+      const char *zOp = (p->u.flatten.cOpName=='E' ? "EACH" : "FLATTEN");
+      ExprItem *pItem = &p->u.flatten.pList->apEItem[0];
       xjd1DataSrcInit(p->u.flatten.pNext, pQuery);
+      rc = xjd1FlattenExprInit(pItem->pExpr,p->u.flatten.pNext,&pItem->zAs,zOp);
       break;
     }
     case TK_NULL:                 /* Initializing a NULL DS is a no-op */
       assert( p->u.null.isDone==0 );
       break;
   }
-  return XJD1_OK;
+  return rc;
+}
+
+static JsonNode *newIntValue(int i){
+  JsonNode *pRet = xjd1JsonNew(0);
+  pRet->eJType = XJD1_REAL;
+  pRet->u.r = (double)i;
+  return pRet;
+}
+
+static JsonNode *newStringValue(const char *z){
+  JsonNode *pRet = xjd1JsonNew(0);
+  pRet->eJType = XJD1_STRING;
+  pRet->u.z = xjd1PoolDup(0, z, -1);
+  return pRet;
+}
+
+static JsonNode *flattenedObject(
+  JsonNode *pBase,
+  JsonNode *pKey,
+  JsonNode *pValue,
+  const char *zAs
+){
+  JsonNode *pRet;                 /* Value to return */
+  JsonNode *pKV;                  /* Value to return */
+
+  pKV = xjd1JsonNew(0);
+  pKV->eJType = XJD1_STRUCT;
+  xjd1JsonInsert(pKV, "k", pKey);
+  xjd1JsonInsert(pKV, "v", pValue);
+
+  pRet = xjd1JsonEdit(xjd1JsonRef(pBase));
+  assert( pRet->nRef==1 && pRet!=pBase );
+  xjd1JsonInsert(pRet, zAs, pKV);
+  return pRet;
+}
+
+static int valueIsEmpty(JsonNode *p){
+  if( p && ( 
+      (p->eJType==XJD1_ARRAY && p->u.ar.nElem>0)
+   || (p->eJType==XJD1_STRUCT && p->u.st.pFirst!=0)
+  )){
+    return 0;
+  }
+  return 1;
 }
 
 /*
@@ -99,9 +148,59 @@ int xjd1DataSrcStep(DataSrc *p){
       }
       break;
     }
+
     case TK_FLATTENOP: {
+      ExprItem *pItem = &p->u.flatten.pList->apEItem[0];
+
+      xjd1JsonFree(p->pValue);
+      p->pValue = 0;
+      rc = XJD1_ROW;
+
+      while( rc==XJD1_ROW && valueIsEmpty(p->u.flatten.pValue) ){
+        rc = xjd1DataSrcStep(p->u.flatten.pNext);
+        if( rc==XJD1_ROW ){
+          p->u.flatten.pValue = xjd1ExprEval(pItem->pExpr);
+          p->u.flatten.iIdx = 0;
+        }
+      }
+
+      if( rc==XJD1_ROW ){
+        JsonNode *pOut = 0;
+        JsonNode *pVal = p->u.flatten.pValue;
+        JsonNode *pBase = p->u.flatten.pNext->pValue;
+        int iIdx = p->u.flatten.iIdx++;
+        int bEof = 0;
+
+        switch( pVal->eJType ){
+          case XJD1_STRUCT: {
+            int i;
+            JsonStructElem *pElem = pVal->u.st.pFirst;
+            for(i=0; i<iIdx; i++) pElem = pElem->pNext;
+            bEof = (pElem->pNext==0);
+            pOut = flattenedObject(pBase, newStringValue(pElem->zLabel), 
+                xjd1JsonRef(pElem->pValue), pItem->zAs
+            );
+            break;
+          }
+          case XJD1_ARRAY: {
+            assert( iIdx<pVal->u.ar.nElem );
+            bEof = ( (iIdx+1)>=pVal->u.ar.nElem );
+            pOut = flattenedObject(pBase, newIntValue(iIdx),
+                xjd1JsonRef(pVal->u.ar.apElem[iIdx]), pItem->zAs
+            );
+            break;
+          }
+        }
+
+        if( bEof ){
+          p->u.flatten.pValue = 0;
+          xjd1JsonFree(p->u.flatten.pValue);
+        }
+        p->pValue = pOut;
+      }
       break;
     }
+
     case TK_NULL: {
       rc = (p->u.null.isDone ? XJD1_DONE : XJD1_ROW);
       p->u.null.isDone = 1;
@@ -177,6 +276,9 @@ int xjd1DataSrcRewind(DataSrc *p){
     }
     case TK_FLATTENOP: {
       xjd1DataSrcRewind(p->u.flatten.pNext);
+      xjd1JsonFree(p->u.flatten.pValue);
+      p->u.flatten.pValue = 0;
+      p->u.flatten.iIdx = 0;
       break;
     }
     case TK_NULL: {
@@ -230,36 +332,6 @@ void xjd1DataSrcCacheSave(DataSrc *p, JsonNode **apNode){
   cacheSaveRecursive(p, &pp);
 }
 
-static JsonNode *cacheReadRecursive(
-  DataSrc *p, 
-  JsonNode ***papNode, 
-  const char *zDocname
-){
-  JsonNode *pRet = 0;
-  if( p->eDSType==TK_COMMA ){
-    pRet = cacheReadRecursive(p->u.join.pLeft, papNode, zDocname);
-    if( !pRet ) pRet = cacheReadRecursive(p->u.join.pRight, papNode, zDocname);
-  }else{
-    if( zDocname==0 
-     || (p->zAs && 0==strcmp(zDocname, p->zAs))
-     || (p->zAs==0 && p->eDSType==TK_ID && strcmp(p->u.tab.zName, zDocname)==0)
-    ){
-      pRet = xjd1JsonRef(**papNode);
-    }
-    (*papNode)++;
-  }
-  return pRet;
-}
-
-JsonNode *xjd1DataSrcCacheRead(
-  DataSrc *p,                     /* The data-source */
-  JsonNode **apNode,              /* Array of cached values */
-  const char *zDocname            /* The document name to search for */
-){
-  JsonNode **pp = apNode;
-  return cacheReadRecursive(p, &pp, zDocname);
-}
-
 static int datasrcResolveRecursive(
   DataSrc *p, 
   int *piEntry, 
@@ -271,6 +343,8 @@ static int datasrcResolveRecursive(
     if( 0==ret ){
       ret = datasrcResolveRecursive(p->u.join.pRight, piEntry, zDocname);
     }
+  }else if( p->eDSType==TK_FLATTENOP ){
+    ret = datasrcResolveRecursive(p->u.flatten.pNext, piEntry, zDocname);
   }else{
     if( (p->zAs && 0==strcmp(zDocname, p->zAs))
      || (p->zAs==0 && p->eDSType==TK_ID && strcmp(p->u.tab.zName, zDocname)==0)
@@ -307,5 +381,6 @@ static JsonNode *datasrcReadRecursive(
 }
 JsonNode *xjd1DataSrcRead(DataSrc *p, int iDoc){
   int iEntry = 1;
+  assert( iDoc>=1 );
   return datasrcReadRecursive(p, &iEntry, iDoc);
 }
