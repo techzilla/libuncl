@@ -40,7 +40,10 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       sqlite3_free(zSql);
       break;
     }
-
+    case TK_FLATTENOP: {
+      xjd1DataSrcInit(p->u.flatten.pNext, pQuery);
+      break;
+    }
     case TK_NULL:                 /* Initializing a NULL DS is a no-op */
       assert( p->u.null.isDone==0 );
       break;
@@ -96,6 +99,9 @@ int xjd1DataSrcStep(DataSrc *p){
       }
       break;
     }
+    case TK_FLATTENOP: {
+      break;
+    }
     case TK_NULL: {
       rc = (p->u.null.isDone ? XJD1_DONE : XJD1_ROW);
       p->u.null.isDone = 1;
@@ -106,9 +112,9 @@ int xjd1DataSrcStep(DataSrc *p){
 }
 
 /*
-** Return the document that this data source if the document if the AS
-** name of the document is zDocName or if zDocName==0.  The AS name is
-** important since a join might have multiple documents.
+** Return the document that this data source is current pointing to
+** if the AS name of the document is zDocName or if zDocName==0.
+** The AS name is important since a join might have multiple documents.
 **
 ** xjd1JsonRef() has been called on the returned string.  The caller
 ** must invoke xjd1JsonFree().
@@ -132,6 +138,7 @@ JsonNode *xjd1DataSrcDoc(DataSrc *p, const char *zDocName){
       }
       break;
     }
+    case TK_FLATTENOP:
     case TK_ID: {
       if( zDocName==0 || (p->zAs==0 && strcmp(p->u.tab.zName, zDocName)==0) ){
         pRes = xjd1JsonRef(p->pValue);
@@ -168,6 +175,10 @@ int xjd1DataSrcRewind(DataSrc *p){
       sqlite3_reset(p->u.tab.pStmt);
       break;
     }
+    case TK_FLATTENOP: {
+      xjd1DataSrcRewind(p->u.flatten.pNext);
+      break;
+    }
     case TK_NULL: {
       p->u.null.isDone = 0;
       break;
@@ -185,6 +196,10 @@ int xjd1DataSrcClose(DataSrc *p){
   switch( p->eDSType ){
     case TK_ID: {
       sqlite3_finalize(p->u.tab.pStmt);
+      break;
+    }
+    case TK_FLATTENOP: {
+      xjd1DataSrcClose(p->u.flatten.pNext);
       break;
     }
   }
@@ -294,4 +309,3 @@ JsonNode *xjd1DataSrcRead(DataSrc *p, int iDoc){
   int iEntry = 1;
   return datasrcReadRecursive(p, &iEntry, iDoc);
 }
-
