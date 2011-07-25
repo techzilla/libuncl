@@ -22,5 +22,27 @@ SELECT count(c2) FROM c1 AS c2;
 SELECT count(c1) FROM c1 AS c2;
 .error ERROR no such object: c1
 
+.testcase 5
+SELECT (SELECT 1);
+.result 1
+
+.testcase 6
+SELECT (SELECT c1.i FROM c1);
+.result 3
+
+.testcase 7
+SELECT (SELECT c1.i FROM c1) FROM c1;
+.result 3 3 3 3
+
+.testcase 8
+SELECT (SELECT c1.i) FROM c1;
+.result 3 1 2 4
+
+.testcase 7
+SELECT 
+  (SELECT inner.z FROM c1 AS inner WHERE inner.i==c1.i+1) 
+FROM c1 ORDER BY c1.i;
+.result "two" "three" "four" null
+
 
 

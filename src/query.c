@@ -166,36 +166,45 @@ static void clearResultList(ResultList *pList){
 ** Called after statement parsing to initalize every Query object
 ** within the statement.
 */
-int xjd1QueryInit(Query *p, xjd1_stmt *pStmt, Query *pOuter){
+int xjd1QueryInit(
+  Query *p,                       /* Query to initialize */
+  xjd1_stmt *pStmt,               /* Statement this query is part of */
+  void *pCtx                      /* Context for expression initialization */
+){
   int rc;
   if( p==0 ) return XJD1_OK;
   p->pStmt = pStmt;
-  p->pOuter = pOuter;
   if( p->eQType==TK_SELECT ){
-    rc = xjd1ExprInit(p->u.simple.pRes, pStmt, p, XJD1_EXPR_RESULT);
+    rc = xjd1ExprInit(p->u.simple.pRes, pStmt, p, XJD1_EXPR_RESULT, pCtx);
     if( !rc ){
       rc = xjd1DataSrcInit(p->u.simple.pFrom, p);
     }
     if( !rc ){
-      rc = xjd1ExprInit(p->u.simple.pWhere, pStmt, p, XJD1_EXPR_WHERE);
+      rc = xjd1ExprInit(p->u.simple.pWhere, pStmt, p, XJD1_EXPR_WHERE, pCtx);
     }
     if( !rc ){
-      rc = xjd1ExprListInit(p->u.simple.pGroupBy, pStmt, p, XJD1_EXPR_GROUPBY);
+      rc = xjd1ExprListInit(p->u.simple.pGroupBy, pStmt, p, XJD1_EXPR_GROUPBY, pCtx);
     }
     if( !rc ){
-      rc = xjd1ExprInit(p->u.simple.pHaving, pStmt, p, XJD1_EXPR_HAVING);
+      rc = xjd1ExprInit(p->u.simple.pHaving, pStmt, p, XJD1_EXPR_HAVING, pCtx);
     }
     if( !rc && p->u.simple.pGroupBy ){ 
       rc = xjd1AggregateInit(pStmt, p, 0);
     }
   }else{
-    rc = xjd1QueryInit(p->u.compound.pLeft, pStmt, pOuter);
-    if( !rc ) rc = xjd1QueryInit(p->u.compound.pRight, pStmt, pOuter);
+    rc = xjd1QueryInit(p->u.compound.pLeft, pStmt, pCtx);
+    if( !rc ) rc = xjd1QueryInit(p->u.compound.pRight, pStmt, pCtx);
   }
 
-  if( !rc ) rc = xjd1ExprListInit(p->pOrderBy, pStmt, p, XJD1_EXPR_ORDERBY);
-  if( !rc ) rc = xjd1ExprInit(p->pLimit, pStmt, p, XJD1_EXPR_LIMIT);
-  if( !rc ) rc = xjd1ExprInit(p->pOffset, pStmt, p, XJD1_EXPR_OFFSET);
+  if( !rc ){
+    rc = xjd1ExprListInit(p->pOrderBy, pStmt, p, XJD1_EXPR_ORDERBY, pCtx);
+  }
+  if( !rc ){
+    rc = xjd1ExprInit(p->pLimit, pStmt, p, XJD1_EXPR_LIMIT, pCtx);
+  }
+  if( !rc ){
+    rc = xjd1ExprInit(p->pOffset, pStmt, p, XJD1_EXPR_OFFSET, pCtx);
+  }
   return rc;
 }
 
@@ -545,10 +554,6 @@ static int selectStepOrdered(Query *p){
   ExprList *pOrderBy = p->pOrderBy;    /* ORDER BY clause (or NULL) */
 
   if( pOrderBy ){
-
-    /* TODO: Fix this hack. */
-    extern void xjd1SetExprListQuery(ExprList *, Query *);
-    xjd1SetExprListQuery(pOrderBy, p);
 
     /* A non-aggregate with an ORDER BY clause. */
     if( p->ordered.pPool==0 ){

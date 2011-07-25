@@ -30,7 +30,7 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       break;
     }
     case TK_SELECT: {
-      xjd1QueryInit(p->u.subq.q, pQuery->pStmt, pQuery);
+      xjd1QueryInit(p->u.subq.q, pQuery->pStmt, 0);
       break;
     }
     case TK_ID: {

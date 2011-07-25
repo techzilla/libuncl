@@ -56,13 +56,13 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
         break;
       }
       case TK_DELETE: {
-        xjd1ExprInit(pCmd->u.del.pWhere, p, 0, 0);
+        xjd1ExprInit(pCmd->u.del.pWhere, p, 0, 0, 0);
         break;
       }
       case TK_UPDATE: {
-        xjd1ExprInit(pCmd->u.update.pWhere, p, 0, 0);
-        xjd1ExprListInit(pCmd->u.update.pChng, p, 0, 0);
-        xjd1ExprInit(pCmd->u.update.pUpsert, p, 0, 0);
+        xjd1ExprInit(pCmd->u.update.pWhere, p, 0, 0, 0);
+        xjd1ExprListInit(pCmd->u.update.pChng, p, 0, 0, 0);
+        xjd1ExprInit(pCmd->u.update.pUpsert, p, 0, 0, 0);
         break;
       }
     }

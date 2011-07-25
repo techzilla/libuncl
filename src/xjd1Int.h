@@ -283,7 +283,6 @@ struct Aggregate {
 struct Query {
   int eQType;                   /* Query type */
   xjd1_stmt *pStmt;             /* Statement this query is part of */
-  Query *pOuter;                /* Next outer query for a subquery */
   union {
     struct {                    /* For compound queries */
       Query *pLeft;               /* Left subquery */
@@ -413,8 +412,8 @@ JsonNode *xjd1DataSrcRead(DataSrc *, int);
 int xjd1DeleteStep(xjd1_stmt*);
 
 /******************************** expr.c *************************************/
-int xjd1ExprInit(Expr*, xjd1_stmt*, Query*, int);
-int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*, int);
+int xjd1ExprInit(Expr*, xjd1_stmt*, Query*, int, void *);
+int xjd1ExprListInit(ExprList*, xjd1_stmt*, Query*, int, void *);
 JsonNode *xjd1ExprEval(Expr*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
@@ -453,7 +452,7 @@ char *xjd1PoolDup(Pool*, const char *, int);
 int xjd1PragmaStep(xjd1_stmt*);
 
 /******************************** query.c ************************************/
-int xjd1QueryInit(Query*,xjd1_stmt*,Query*);
+int xjd1QueryInit(Query*,xjd1_stmt*,void*);
 int xjd1QueryRewind(Query*);
 int xjd1QueryStep(Query*);
 int xjd1QueryClose(Query*);

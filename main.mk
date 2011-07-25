@@ -129,4 +129,4 @@ sqlite3.o:	$(TOP)/src/sqlite3.c $(TOP)/src/sqlite3.h
 
 clean:	
 	rm -f *.o lib*.a
-	rm -f lemon xjd1 parse.* parse_txt.h
+	rm -f lemon xjd1 parse.* parse_txt.h lempar.c

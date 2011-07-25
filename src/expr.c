@@ -19,29 +19,30 @@
 #include "xjd1Int.h"
 #include <math.h>
 
+
 /*
-** Information passed down into the expression walker.
+** Instances of the following structure are used when resolving document
+** references in expressions.
 */
-typedef struct WalkAction WalkAction;
-struct WalkAction {
-  int (*xQueryAction)(Expr*,WalkAction*);  /* Call for each EXPR_Q node */
-  int (*xNodeAction)(Expr*,WalkAction*);   /* Call for every node */
-  xjd1_stmt *pStmt;                        /* Stmt expr belongs to */
-  Query *pQuery;                           /* Query expr belongs to */
-  void *pArg;                              /* Some other argument */
+typedef struct ResolveCtx ResolveCtx;
+struct ResolveCtx {
+  xjd1_stmt *pStmt;               /* Statement expressions are part of */
+  Query *pQuery;                  /* Query expressions are part of */
+  int eExpr;                      /* Role of expression in pQuery */
+  ResolveCtx *pParent;            /* NULL or parent of pQuery */
 };
 
 /* forward reference */
-static int walkExpr(Expr*,WalkAction*);
+static int walkExpr(Expr*, int (*)(Expr *,void *), void *);
 
 /*
 ** Walk an expression list 
 */
-static int walkExprList(ExprList *p, WalkAction *pAction){
+static int walkExprList(ExprList *p, int (*xFunc)(Expr *,void *), void *pCtx){
   if( p ){
     int i;
     for(i=0; i<p->nEItem; i++){
-      walkExpr(p->apEItem[i].pExpr, pAction);
+      walkExpr(p->apEItem[i].pExpr, xFunc, pCtx);
     }
   }
   return XJD1_OK;
@@ -50,22 +51,20 @@ static int walkExprList(ExprList *p, WalkAction *pAction){
 /*
 ** Walk an expression tree
 */
-static int walkExpr(Expr *p, WalkAction *pAction){
+static int walkExpr(Expr *p, int (*xFunc)(Expr *,void *), void *pCtx){
   int rc = XJD1_OK;
   if( p==0 ) return XJD1_OK;
-  if( pAction->xNodeAction ){
-    rc = pAction->xNodeAction(p, pAction);
-  }
+  rc = xFunc(p, pCtx);
   switch( p->eClass ){
     case XJD1_EXPR_BI: {
-      walkExpr(p->u.bi.pLeft, pAction);
-      walkExpr(p->u.bi.pRight, pAction);
+      walkExpr(p->u.bi.pLeft, xFunc, pCtx);
+      walkExpr(p->u.bi.pRight, xFunc, pCtx);
       break;
     }
     case XJD1_EXPR_TRI: {
-      walkExpr(p->u.tri.pTest, pAction);
-      walkExpr(p->u.tri.pIfTrue, pAction);
-      walkExpr(p->u.tri.pIfFalse, pAction);
+      walkExpr(p->u.tri.pTest, xFunc, pCtx);
+      walkExpr(p->u.tri.pIfTrue, xFunc, pCtx);
+      walkExpr(p->u.tri.pIfFalse, xFunc, pCtx);
       break;
     }
     case XJD1_EXPR_TK: {
@@ -73,13 +72,7 @@ static int walkExpr(Expr *p, WalkAction *pAction){
       break;
     }
     case XJD1_EXPR_FUNC: {
-      walkExprList(p->u.func.args, pAction);
-      break;
-    }
-    case XJD1_EXPR_Q: {
-      if( pAction->xQueryAction ){
-        rc = pAction->xQueryAction(p, pAction);
-      }
+      walkExprList(p->u.func.args, xFunc, pCtx);
       break;
     }
     case XJD1_EXPR_JSON: {
@@ -87,30 +80,30 @@ static int walkExpr(Expr *p, WalkAction *pAction){
       break;
     }
     case XJD1_EXPR_ARRAY: {
-      walkExprList(p->u.ar, pAction);
+      walkExprList(p->u.ar, xFunc, pCtx);
       break;
     }
     case XJD1_EXPR_STRUCT: {
-      walkExprList(p->u.st, pAction);
+      walkExprList(p->u.st, xFunc, pCtx);
       break;
     }
     case XJD1_EXPR_LVALUE: {
-      walkExpr(p->u.lvalue.pLeft, pAction);
+      walkExpr(p->u.lvalue.pLeft, xFunc, pCtx);
       break;
     }
   }
   return rc;
 }
 
-static int exprResolve(Expr *p, WalkAction *pAction){
-  int eExpr = *(int *)pAction->pArg;
+static int exprResolve(Expr *p, ResolveCtx *pCtx){
+  int eExpr = pCtx->eExpr;
   const char *zDoc;
 
-  assert( eExpr>0 || (pAction->pQuery==0 && pAction->pStmt) );
+  assert( eExpr>0 || (pCtx->pQuery==0 && pCtx->pStmt) );
 
   zDoc = p->u.id.zId;
   if( eExpr==0 ){
-    Command *pCmd = pAction->pStmt->pCmd;
+    Command *pCmd = pCtx->pStmt->pCmd;
     switch( pCmd->eCmdType ){
       case TK_DELETE:
         if( 0==strcmp(zDoc, pCmd->u.del.zName) ) return XJD1_OK;
@@ -124,67 +117,70 @@ static int exprResolve(Expr *p, WalkAction *pAction){
         break;
     }
   }else{
-    Query *pQuery = pAction->pQuery;
-    int bFound = 0;
-
-    assert( pQuery->eQType==TK_SELECT || eExpr==XJD1_EXPR_ORDERBY );
-
-    /* Search the FROM clause. */
-    if( pQuery->eQType==TK_SELECT && (
-          eExpr==XJD1_EXPR_RESULT  || eExpr==XJD1_EXPR_WHERE ||
-          eExpr==XJD1_EXPR_GROUPBY || eExpr==XJD1_EXPR_HAVING ||
-          eExpr==XJD1_EXPR_ORDERBY
-    )){
-      int iDatasrc = xjd1DataSrcResolve(pQuery->u.simple.pFrom, zDoc);
-      if( iDatasrc ){
-        p->u.id.iDatasrc = iDatasrc;
-        bFound = 1;
-      }
-    }
-
-    /* Match against any 'AS' alias on the query result */
-    if( bFound==0 && pQuery->zAs ){
-      if( eExpr==XJD1_EXPR_ORDERBY 
-       || eExpr==XJD1_EXPR_HAVING
-       || (eExpr==XJD1_EXPR_WHERE && pQuery->u.simple.pAgg==0)
-      ){
-        if( 0==strcmp(zDoc, pQuery->zAs) ){
+    ResolveCtx *pTest;
+    for(pTest=pCtx; pTest; pTest=pTest->pParent){
+      Query *pQuery = pTest->pQuery;
+      int bFound = 0;
+  
+      assert( pQuery->eQType==TK_SELECT || eExpr==XJD1_EXPR_ORDERBY );
+  
+      /* Search the FROM clause. */
+      if( pQuery->eQType==TK_SELECT && (
+            eExpr==XJD1_EXPR_RESULT  || eExpr==XJD1_EXPR_WHERE ||
+            eExpr==XJD1_EXPR_GROUPBY || eExpr==XJD1_EXPR_HAVING ||
+            eExpr==XJD1_EXPR_ORDERBY
+      )){
+        int iDatasrc = xjd1DataSrcResolve(pQuery->u.simple.pFrom, zDoc);
+        if( iDatasrc ){
+          p->u.id.iDatasrc = iDatasrc;
           bFound = 1;
         }
       }
-    }
-
-    if( bFound ){
-      p->u.id.pQuery = pQuery;
-      return XJD1_OK;
+  
+      /* Match against any 'AS' alias on the query result */
+      if( bFound==0 && pQuery->zAs ){
+        if( eExpr==XJD1_EXPR_ORDERBY 
+         || eExpr==XJD1_EXPR_HAVING
+         || (eExpr==XJD1_EXPR_WHERE && pQuery->u.simple.pAgg==0)
+        ){
+          if( 0==strcmp(zDoc, pQuery->zAs) ){
+            bFound = 1;
+          }
+        }
+      }
+  
+      if( bFound ){
+        p->u.id.pQuery = pQuery;
+        return XJD1_OK;
+      }
     }
   }
 
-  xjd1StmtError(pAction->pStmt, XJD1_ERROR, "no such object: %s", zDoc);
+  xjd1StmtError(pCtx->pStmt, XJD1_ERROR, "no such object: %s", zDoc);
   return XJD1_ERROR;
 }
 
 /*
 ** Callback for query expressions
 */
-static int walkInitCallback(Expr *p, WalkAction *pAction){
+static int walkInitCallback(Expr *p, void *pArg){
   int rc = XJD1_OK;
+  ResolveCtx *pCtx = (ResolveCtx *)pArg;
   assert( p );
-  p->pStmt = pAction->pStmt;
-  p->pQuery = pAction->pQuery;
+  p->pStmt = pCtx->pStmt;
+  p->pQuery = pCtx->pQuery;
   switch( p->eClass ){
     case XJD1_EXPR_Q:
-      rc = xjd1QueryInit(p->u.subq.p, pAction->pStmt, pAction->pQuery);
+      rc = xjd1QueryInit(p->u.subq.p, pCtx->pStmt, pArg);
       break;
 
     case XJD1_EXPR_FUNC: {
-      int eExpr = *(int *)pAction->pArg;
-      rc = xjd1FunctionInit(p, pAction->pStmt, pAction->pQuery, eExpr);
+      rc = xjd1FunctionInit(p, pCtx->pStmt, pCtx->pQuery, pCtx->eExpr);
       break;
     }
 
     case XJD1_EXPR_TK: {
-      rc = exprResolve(p, pAction);
+      rc = exprResolve(p, pCtx);
       break;
     }
 
@@ -204,58 +200,60 @@ int xjd1ExprInit(
   Expr *p,                        /* Expression to initialize */
   xjd1_stmt *pStmt,               /* Statement expression belongs to */
   Query *pQuery,                  /* Query expression belongs to (or NULL) */
-  int eExpr                       /* How the expression features in the query */
+  int eExpr,                      /* How the expression features in the query */
+  void *pCtx                      /* Parent resolution context */
 ){
-  WalkAction sAction;
-  memset(&sAction, 0, sizeof(sAction));
-  sAction.xNodeAction = walkInitCallback;
-  sAction.pStmt = pStmt;
-  sAction.pQuery = pQuery;
-  sAction.pArg = (void *)&eExpr;
-  return walkExpr(p, &sAction);
+  ResolveCtx sCtx;
+  assert( pQuery==0 || pQuery->pStmt==pStmt );
+  sCtx.pStmt = pStmt;
+  sCtx.pQuery = pQuery;
+  sCtx.eExpr = eExpr;
+  sCtx.pParent = (ResolveCtx *)pCtx;
+  return walkExpr(p, walkInitCallback, (void *)&sCtx);
 }
 
 /*
 ** Initialize a list of expression in preparation for evaluation of a
 ** statement.
 */
-int xjd1ExprListInit(ExprList *p, xjd1_stmt *pStmt, Query *pQuery, int eExpr){
-  WalkAction sAction;
-  assert( eExpr==0 || pQuery );
-  memset(&sAction, 0, sizeof(sAction));
-  sAction.xNodeAction = walkInitCallback;
-  sAction.pStmt = pStmt;
-  sAction.pQuery = pQuery;
-  sAction.pArg = (int *)&eExpr;
-  return walkExprList(p, &sAction);
+int xjd1ExprListInit(
+  ExprList *p,                    /* List of expressions to initialize */
+  xjd1_stmt *pStmt,               /* Statement expressions belong to */
+  Query *pQuery,                  /* Query expressions belong to (or NULL) */
+  int eExpr,                      /* How the expressions feature in the query */
+  void *pCtx                      /* Parent resolution context */
+){
+  ResolveCtx sCtx;
+  assert( pQuery==0 || pQuery->pStmt==pStmt );
+  sCtx.pStmt = pStmt;
+  sCtx.pQuery = pQuery;
+  sCtx.eExpr = eExpr;
+  sCtx.pParent = (ResolveCtx *)pCtx;
+  return walkExprList(p, walkInitCallback, (void *)&sCtx);
 }
 
 
 /* Walker callback for ExprClose() */
-static int walkCloseQueryCallback(Expr *p, WalkAction *pAction){
-  assert( p );
-  assert( p->eType==TK_SELECT );
-  return xjd1QueryClose(p->u.subq.p);
+static int walkCloseQueryCallback(Expr *p, void *pCtx){
+  int rc = XJD1_OK;
+  if( p->eType==TK_SELECT ){
+    rc = xjd1QueryClose(p->u.subq.p);
+  }
+  return rc;
 }
 
 /*
 ** Close all subqueries in an expression.
 */
 int xjd1ExprClose(Expr *p){
-  WalkAction sAction;
-  memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkCloseQueryCallback;
-  return walkExpr(p,&sAction);
+  return walkExpr(p, walkCloseQueryCallback, 0);
 }
 
 /*
 ** Close all subqueries in an expression list.
 */
 int xjd1ExprListClose(ExprList *p){
-  WalkAction sAction;
-  memset(&sAction, 0, sizeof(sAction));
-  sAction.xQueryAction = walkCloseQueryCallback;
-  return walkExprList(p,&sAction);
+  return walkExprList(p, walkCloseQueryCallback, 0);
 }
 
 /*
@@ -544,7 +542,7 @@ JsonNode *xjd1ExprEval(Expr *p){
 
     case TK_ID: {
       if( p->pQuery ){
-        return xjd1QueryDoc(p->pQuery, p->u.id.iDatasrc);
+        return xjd1QueryDoc(p->u.id.pQuery, p->u.id.iDatasrc);
       }else{
         return xjd1StmtDoc(p->pStmt);
       }
@@ -570,6 +568,26 @@ JsonNode *xjd1ExprEval(Expr *p){
 
     case TK_FUNCTION: {
       pRes = xjd1FunctionEval(p);
+      return pRes;
+    }
+
+    /* A scalar sub-query. The result of this is the first object 
+    ** returned by executing the query. Or, if the query returns zero
+    ** rows, a NULL value. 
+    **
+    ** TODO: Handle correlated and uncorrelated sub-queries differently.
+    */
+    case TK_SELECT: {
+      Query *pQuery = p->u.subq.p;
+      int rc;
+      rc = xjd1QueryStep(pQuery);
+      if( rc==XJD1_ROW ){
+        pRes = xjd1QueryDoc(pQuery, 0);
+      }else if( rc==XJD1_DONE ){
+        pRes = xjd1JsonNew(0);
+        if( pRes ) pRes->eJType = XJD1_NULL;
+      }
+      xjd1QueryRewind(pQuery);
       return pRes;
     }
   }
@@ -811,21 +829,3 @@ int xjd1ExprTrue(Expr *p){
   return rc;
 }
 
-static int setExprQuery(Expr *p, WalkAction *pAction){
-  p->pQuery = pAction->pQuery;
-  return XJD1_OK;
-}
-
-void xjd1SetExprListQuery(ExprList *pList, Query *p){
-  int i;
-  WalkAction action;
-
-  action.xQueryAction = 0;
-  action.pQuery = p;
-  action.pStmt = 0;
-  action.pArg = 0;
-  action.xNodeAction= setExprQuery;
-  for(i=0; i<pList->nEItem; i++){
-    walkExpr(pList->apEItem[i].pExpr, &action);
-  }
-}
