@@ -125,7 +125,7 @@ parse.c:	$(TOP)/src/parse.y lemon
 	./lemon $(OPTS) parse.y
 
 sqlite3.o:	$(TOP)/src/sqlite3.c $(TOP)/src/sqlite3.h
-	$(TCCX) -c -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOADEXTENSION $<
+	$(TCCX) -c -DSQLITE_NO_SYNC -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOADEXTENSION $<
 
 clean:	
 	rm -f *.o lib*.a
