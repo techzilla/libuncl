@@ -44,7 +44,7 @@ static int resizeString(String *pStr, int newSize){
     if( zNew==0 ) return 1;
     memcpy(zNew, pStr->zBuf, pStr->nUsed);
   }else{
-    zNew = realloc(pStr->zBuf, newSize);
+    zNew = xjd1_realloc(pStr->zBuf, newSize);
     if( zNew==0 ) return 1;
   }
   pStr->nAlloc = newSize;
@@ -111,14 +111,14 @@ PRIVATE void xjd1StringInit(String *pStr, Pool *pPool, int initSize){
 **
 ** If pPool is not NULL then all string memory allocations including
 ** the allocation of the String object itself, come from the identified
-** memory pool.  If pPool is NULL, then malloc()/free() are used.
+** memory pool.  If pPool is NULL, then xjd1_malloc()/xjd1_free() are used.
 */
 PRIVATE String *xjd1StringNew(Pool *pPool, int initSize){
   String *pStr;
   if( pPool ){
     pStr = xjd1PoolMalloc(pPool, sizeof(*pStr));
   }else{
-    pStr = malloc( sizeof(*pStr) );
+    pStr = xjd1_malloc( sizeof(*pStr) );
   }
   if( pStr) xjd1StringInit(pStr, pPool, initSize);
   return pStr;
@@ -129,7 +129,7 @@ PRIVATE String *xjd1StringNew(Pool *pPool, int initSize){
 */
 PRIVATE void xjd1StringClear(String *pStr){
   if( pStr ){
-    if( pStr->pPool==0 ) free(pStr->zBuf);
+    if( pStr->pPool==0 ) xjd1_free(pStr->zBuf);
     memset(pStr, 0, sizeof(*pStr));
   }
 }
@@ -139,8 +139,8 @@ PRIVATE void xjd1StringClear(String *pStr){
 */
 PRIVATE void xjd1StringDelete(String *pStr){
   if( pStr && pStr->pPool==0 ){
-    free(pStr->zBuf);
-    free(pStr);
+    xjd1_free(pStr->zBuf);
+    xjd1_free(pStr);
   }
 }
 
@@ -684,7 +684,7 @@ PRIVATE int xjd1StringVAppendF(
         }
         n += i + 1;
         if( n>etBUFSIZE ){
-          bufpt = zExtra = malloc( n );
+          bufpt = zExtra = xjd1_malloc( n );
         }else{
           bufpt = buf;
         }
@@ -743,7 +743,7 @@ PRIVATE int xjd1StringVAppendF(
       }
     }
     if( zExtra ){
-      free(zExtra);
+      xjd1_free(zExtra);
     }
   }/* End for loop over the format string */
   return errorflag ? -1 : count;

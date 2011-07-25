@@ -409,7 +409,7 @@ int xjd1RunParser(
   }
 #endif
 
-  pEngine = xjd1ParserAlloc(malloc);
+  pEngine = xjd1ParserAlloc(xjd1_malloc);
   memset(&sParse, 0, sizeof(sParse));
   if( pEngine==0 ){
     sParse.errCode = XJD1_NOMEM;
@@ -453,7 +453,7 @@ abort_parse:
     }
     xjd1Parser(pEngine, 0, sParse.sTok, &sParse);
   }
-  xjd1ParserFree(pEngine, free);
+  xjd1ParserFree(pEngine, xjd1_free);
 
   if( sParse.errCode!=XJD1_OK ){
     xjd1Error(pConn, sParse.errCode, "%s", sParse.errMsg.zBuf);

@@ -31,7 +31,7 @@ int xjd1_stmt_new(xjd1 *pConn, const char *zStmt, xjd1_stmt **ppNew, int *pN){
 
   if( pN==0 ) pN = &dummy;
   *pN = strlen(zStmt);
-  *ppNew = p = malloc( sizeof(*p) );
+  *ppNew = p = xjd1_malloc( sizeof(*p) );
   if( p==0 ) return XJD1_NOMEM;
   memset(p, 0, sizeof(*p));
   p->pConn = pConn;
@@ -134,7 +134,7 @@ int xjd1_stmt_delete(xjd1_stmt *pStmt){
   xjd1Unref(pStmt->pConn);
   xjd1PoolClear(&pStmt->sPool);
   xjd1StringClear(&pStmt->retValue);
-  free(pStmt);
+  xjd1_free(pStmt);
   return XJD1_OK;
 }
 
@@ -276,7 +276,7 @@ int xjd1_stmt_value(xjd1_stmt *pStmt, const char **pzValue){
 ** Construct a human-readable listing of a prepared statement showing
 ** its internal structure.  Used for debugging and analysis only.
 **
-** The return string is obtained from malloc and must be freed by
+** The return string is obtained from xjd1_malloc and must be freed by
 ** the caller.
 */
 char *xjd1_stmt_debug_listing(xjd1_stmt *p){

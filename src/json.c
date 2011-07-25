@@ -27,7 +27,7 @@ void xjd1JsonToNull(JsonNode *p){
   if( p==0 ) return;
   switch( p->eJType ){
     case XJD1_STRING: {
-      free(p->u.z);
+      xjd1_free(p->u.z);
       break;
     }
     case XJD1_ARRAY: {
@@ -35,16 +35,16 @@ void xjd1JsonToNull(JsonNode *p){
       for(i=0; i<p->u.ar.nElem; i++){
         xjd1JsonFree(p->u.ar.apElem[i]);
       }
-      free(p->u.ar.apElem);
+      xjd1_free(p->u.ar.apElem);
       break;
     }
     case XJD1_STRUCT: {
       JsonStructElem *pElem, *pNext;
       for(pElem=p->u.st.pFirst; pElem; pElem=pNext){
         pNext = pElem->pNext;
-        free(pElem->zLabel);
+        xjd1_free(pElem->zLabel);
         xjd1JsonFree(pElem->pValue);
-        free(pElem);
+        xjd1_free(pElem);
       }
       break;
     }
@@ -58,7 +58,7 @@ void xjd1JsonToNull(JsonNode *p){
 void xjd1JsonFree(JsonNode *p){
   if( p && (--p->nRef)<=0 ){
     xjd1JsonToNull(p);
-    free(p);
+    xjd1_free(p);
   }
 }
 
@@ -71,7 +71,7 @@ JsonNode *xjd1JsonNew(Pool *pPool){
     p = xjd1PoolMalloc(pPool, sizeof(*p));
     if( p ) p->nRef = 10000;
   }else{
-    p = malloc( sizeof(*p) );
+    p = xjd1_malloc( sizeof(*p) );
     if( p ){
       memset(p, 0, sizeof(*p));
       p->nRef = 1;
@@ -113,7 +113,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
     }
     case XJD1_ARRAY: {
       JsonNode **ap;
-      pNew->u.ar.apElem = ap = malloc( sizeof(JsonNode*)*p->u.ar.nElem );
+      pNew->u.ar.apElem = ap = xjd1_malloc( sizeof(JsonNode*)*p->u.ar.nElem );
       if( ap==0 ){
         pNew->eJType = XJD1_NULL;
       }else{
@@ -129,7 +129,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
       JsonStructElem *pSrc, *pDest, **ppPrev;
       ppPrev = &pNew->u.st.pFirst;
       for(pSrc=p->u.st.pFirst; pSrc; pSrc=pSrc->pNext){
-        pNew->u.st.pLast = pDest = malloc( sizeof(*pDest) );
+        pNew->u.st.pLast = pDest = xjd1_malloc( sizeof(*pDest) );
         if( pDest==0 ) break;
         memset(pDest, 0, sizeof(*pDest));
         *ppPrev = pDest;
@@ -583,14 +583,14 @@ void xjd1DequoteString(char *z, int n){
 
 /* Convert the current token (which must be a string) into a true
 ** string (resolving all of the backslash escapes) and return a pointer
-** to the true string.  Space is obtained form malloc().
+** to the true string.  Space is obtained from xjd1_malloc().
 */
 static char *tokenDequoteString(JsonStr *pIn){
   const char *zIn;
   char *zOut;
   int n;
   zIn = &pIn->zIn[pIn->iCur];
-  zOut = malloc( pIn->n );
+  zOut = xjd1_malloc( pIn->n );
   if( zOut==0 ) return 0;
   assert( zIn[0]=='"' && zIn[pIn->n-1]=='"' );
   n = pIn->n-1;
@@ -620,7 +620,7 @@ static JsonNode *parseJson(JsonStr *pIn){
         if( tokenType(pIn)!=JSON_STRING ){
           goto json_error; 
         }
-        pElem = malloc( sizeof(*pElem) );
+        pElem = xjd1_malloc( sizeof(*pElem) );
         if( pElem==0 ) goto json_error;
         memset(pElem, 0, sizeof(*pElem));
         *ppTail = pElem;
@@ -652,7 +652,7 @@ static JsonNode *parseJson(JsonStr *pIn){
         if( pNew->u.ar.nElem>=nAlloc ){
           JsonNode **pNewArray;
           nAlloc = nAlloc*2 + 5;
-          pNewArray = realloc(pNew->u.ar.apElem,
+          pNewArray = xjd1_realloc(pNew->u.ar.apElem,
                               sizeof(JsonNode*)*nAlloc);
           if( pNewArray==0 ) goto json_error;
           pNew->u.ar.apElem = pNewArray;
@@ -686,7 +686,7 @@ static JsonNode *parseJson(JsonStr *pIn){
       break;
     }
     default: {
-      free(pNew);
+      xjd1_free(pNew);
       pNew = 0;
       break;
     }

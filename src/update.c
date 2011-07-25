@@ -37,7 +37,7 @@ static JsonNode *findStructElement(JsonNode *pBase, const char *zField){
       return pElem->pValue;
     }
   }
-  pElem = malloc( sizeof(*pElem) );
+  pElem = xjd1_malloc( sizeof(*pElem) );
   if( pElem==0 ) return 0;
   pElem->pNext = 0;
   if( pBase->u.st.pLast==0 ){
@@ -88,7 +88,7 @@ static void reviseOneField(
     pX = xjd1JsonEdit(xjd1ExprEval(pValue));
     xjd1JsonToNull(pNode);
     *pNode = *pX;
-    free(pX);
+    xjd1_free(pX);
   }
 }
 

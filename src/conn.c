@@ -25,7 +25,7 @@ int xjd1_open(xjd1_context *pContext, const char *zURI, xjd1 **ppNewConn){
   xjd1 *pConn;
   int rc;
 
-  *ppNewConn = pConn = malloc( sizeof(*pConn) );
+  *ppNewConn = pConn = xjd1_malloc( sizeof(*pConn) );
   if( pConn==0 ) return XJD1_NOMEM;
   memset(pConn, 0, sizeof(*pConn));
   pConn->pContext = pContext;
@@ -71,7 +71,7 @@ int xjd1_close(xjd1 *pConn){
   xjd1ContextUnref(pConn->pContext);
   sqlite3_close(pConn->db);
   xjd1StringClear(&pConn->errMsg);
-  free(pConn);
+  xjd1_free(pConn);
   return XJD1_OK;
 }
 

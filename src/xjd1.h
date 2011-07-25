@@ -77,4 +77,16 @@ int xjd1_complete(const char *zStmt);
 /* Show the internal structure of a statement */
 char *xjd1_stmt_debug_listing(xjd1_stmt*);
 
+
+/* Configure or access the malloc/realloc/free used by the module. This
+** will change. */
+void xjd1_configure_malloc(
+  void *(*xMalloc)(int),
+  void *(*xRealloc)(void *, int),
+  void (*xFree)(void *)
+);
+void *xjd1_malloc(int N);
+void xjd1_free(void *p);
+void *xjd1_realloc(void *p, int N);
+
 #endif /* _XJD1_H */

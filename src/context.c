@@ -22,7 +22,7 @@
 int xjd1_context_new(xjd1_context **ppNew){
   xjd1_context *p;
 
-  *ppNew = p = malloc( sizeof(*p) );
+  *ppNew = p = xjd1_malloc( sizeof(*p) );
   if( p ){
     memset(p, 0, sizeof(*p));
     return XJD1_OK;
@@ -37,7 +37,7 @@ int xjd1_context_delete(xjd1_context *p){
   if( p==0 ) return XJD1_OK;
   p->isDying = 1;
   if( p->nRef>0 ) return XJD1_OK;
-  free(p);
+  xjd1_free(p);
   return XJD1_OK;
 }
 

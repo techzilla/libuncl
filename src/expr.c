@@ -605,7 +605,7 @@ JsonNode *xjd1ExprEval(Expr *p){
       pRes->eJType = XJD1_STRUCT;
       for(i=0; i<pList->nEItem; i++){
         ExprItem *pItem = &pList->apEItem[i];
-        pElem = malloc( sizeof(*pElem) );
+        pElem = xjd1_malloc( sizeof(*pElem) );
         if( pElem==0 ) break;
         *ppPrev = pRes->u.st.pLast = pElem;
         ppPrev = &pElem->pNext;
@@ -618,7 +618,7 @@ JsonNode *xjd1ExprEval(Expr *p){
     case TK_ARRAY: {
       int i;
       ExprList *pList = p->u.st;
-      pRes->u.ar.apElem = malloc( pList->nEItem*sizeof(JsonNode*) );
+      pRes->u.ar.apElem = xjd1_malloc( pList->nEItem*sizeof(JsonNode*) );
       if( pRes->u.ar.apElem ){
         pRes->u.ar.nElem = pList->nEItem;
         pRes->eJType = XJD1_ARRAY;
