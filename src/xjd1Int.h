@@ -61,6 +61,7 @@ typedef struct DataSrc DataSrc;
 typedef struct Expr Expr;
 typedef struct ExprItem ExprItem;
 typedef struct ExprList ExprList;
+typedef struct FlattenIter FlattenIter;
 typedef struct Function Function;
 typedef struct JsonNode JsonNode;
 typedef struct JsonStructElem JsonStructElem;
@@ -343,8 +344,7 @@ struct DataSrc {
       DataSrc *pNext;          /* Data source to the left */
       char cOpName;            /* 'E' or 'F' for "EACH" or "FLATTEN" */
       ExprList *pList;         /* List of arguments */
-      JsonNode *pValue;        /* Value to flatten on (or NULL) */
-      int iIdx;                /* Index of value field just returned */
+      FlattenIter *pIter;      /* Iterator */
     } flatten;
     struct {                /* A subquery.  eDSType==TK_SELECT */
       Query *q;                /* The subquery */
@@ -445,13 +445,14 @@ void xjd1JsonToNull(JsonNode*);
 void xjd1DequoteString(char*,int);
 int xjd1JsonInsert(JsonNode *, const char *, JsonNode *);
 
-/******************************** malloc.c ***********************************/
+/******************************** memory.c ***********************************/
 Pool *xjd1PoolNew(void);
 void xjd1PoolClear(Pool*);
 void xjd1PoolDelete(Pool*);
 void *xjd1PoolMalloc(Pool*, int);
 void *xjd1PoolMallocZero(Pool*, int);
 char *xjd1PoolDup(Pool*, const char *, int);
+void *xjd1MallocZero(int);
 
 /******************************** pragma.c ***********************************/
 int xjd1PragmaStep(xjd1_stmt*);

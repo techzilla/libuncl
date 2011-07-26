@@ -52,6 +52,13 @@ void *xjd1_realloc(void *p, int N){
   return global.xRealloc(p, N);
 }
 
+void *xjd1MallocZero(int N){
+  void *pRet;
+  pRet = global.xMalloc(N);
+  if( pRet ) memset(pRet, 0, N);
+  return pRet;
+}
+
 
 /*
 ** Create a new memory allocation pool.  Return a pointer to the

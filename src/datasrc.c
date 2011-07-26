@@ -70,14 +70,189 @@ static JsonNode *newStringValue(const char *z){
   return pRet;
 }
 
+/*
+** An iterator of this type is used by FLATTEN and EACH datasources. It
+** is allocated, accessed and deleted only by the functions:
+**
+**     flattenIterNew()
+**     flattenIterNext()
+**     flattenIterEntry()
+**     flattenIterFree()
+*/
+struct FlattenIter {
+  int nAlloc;                     /* Allocated size of aIter[] array */
+  int nIter;                      /* Number of aIter[] array elements in use */
+  int isRecursive;                /* True for FLATTEN, false for EACH */
+  struct FlattenIterElem {
+    JsonNode *pVal;               /* Struct or List to iterate through. */
+    union {
+      JsonStructElem *pElem;      /* If pVal->eJType==XJD1_STRUCT */
+      int iElem;                  /* If pVal->eJType==XJD1_ARRAY */
+    } current;
+  } aIter[1];
+};
+
+/*
+** Allocate a new iterator to iterate through value pVal. If parameter 
+** isRecursive is true, then the iteration descends into any contained structs
+** or arrays (for the FLATTEN operator). Otherwise, the iteration is not
+** recursive (used by the EACH operator).
+*/
+static FlattenIter *flattenIterNew(JsonNode *pVal, int isRecursive){
+  FlattenIter *pNew;
+  pNew = (FlattenIter *)xjd1MallocZero(sizeof(FlattenIter));
+  if( pNew ){
+    pNew->nAlloc = 1;
+    pNew->nIter = 1;
+    pNew->isRecursive = isRecursive;
+    pNew->aIter[0].pVal = xjd1JsonRef(pVal);
+  }
+  return pNew;
+}
+
+static int flattenIterEntry(
+  FlattenIter *pIter,             /* Iterator handle */
+  JsonNode **ppKey,               /* OUT: Current key value */
+  JsonNode **ppVal                /* OUT: Current payload value */
+){
+  struct FlattenIterElem *p = &pIter->aIter[pIter->nIter-1];
+
+  assert( p->pVal->eJType==XJD1_STRUCT || p->pVal->eJType==XJD1_ARRAY );
+  if( p->pVal->eJType==XJD1_STRUCT ){
+    *ppVal = xjd1JsonRef(p->current.pElem->pValue);
+  }else{
+    *ppVal = xjd1JsonRef(p->pVal->u.ar.apElem[p->current.iElem-1]);
+  }
+
+  if( ppKey ){
+    JsonNode *pKey = 0;
+    JsonNode *pList = 0;
+    int i;
+
+    if( pIter->isRecursive ){
+      pList = xjd1JsonNew(0);
+      pList->eJType = XJD1_ARRAY;
+      pList->u.ar.nElem = pIter->nIter;
+      pList->u.ar.apElem = xjd1MallocZero(pIter->nIter*sizeof(JsonNode *));
+    }
+
+    for(i=pIter->nIter-1; i>=0; i--){
+      p = &pIter->aIter[i];
+      if( p->pVal->eJType==XJD1_STRUCT ){
+        pKey = newStringValue(p->current.pElem->zLabel);
+      }else{
+        pKey = newIntValue(p->current.iElem-1);
+      }
+      if( pIter->isRecursive==0 ) break;
+      pList->u.ar.apElem[i] = pKey;
+    }
+
+    *ppKey = (pIter->isRecursive ? pList : pKey);
+  }
+  return XJD1_OK;
+}
+
+static int flattenIterNext(FlattenIter **ppIter){
+  FlattenIter *pIter = *ppIter;
+  int rc = XJD1_DONE;
+  if( pIter ){
+    while( rc==XJD1_DONE && pIter->nIter ){
+      struct FlattenIterElem *p = &(*ppIter)->aIter[pIter->nIter-1];
+      if( p->pVal->eJType==XJD1_STRUCT ){
+        if( p->current.pElem==0 ){
+          p->current.pElem = p->pVal->u.st.pFirst;
+        }else{
+          p->current.pElem = p->current.pElem->pNext;
+        }
+        if( p->current.pElem ){
+          rc = XJD1_ROW;
+        }else{
+          pIter->nIter--;
+        }
+      }else{
+        assert( p->pVal->eJType==XJD1_ARRAY );
+        p->current.iElem++;
+        if( p->current.iElem<=p->pVal->u.ar.nElem ){
+          rc = XJD1_ROW;
+        }else{
+          pIter->nIter--;
+        }
+      }
+
+      if( pIter->isRecursive && rc==XJD1_ROW ){
+        JsonNode *pVal;
+        flattenIterEntry(pIter, 0, &pVal);
+        if( pVal->eJType==XJD1_STRUCT || pVal->eJType==XJD1_ARRAY ){
+          assert( pIter->nIter<=pIter->nAlloc );
+          if( pIter->nIter==pIter->nAlloc ){
+            int nNew = sizeof(FlattenIter) + (pIter->nAlloc*2-1)*sizeof(*p);
+            FlattenIter *pNew;
+
+            pNew = (FlattenIter *)xjd1_realloc(pIter, nNew);
+            pNew->nAlloc = pNew->nAlloc * 2;
+            *ppIter = pNew;
+            pIter = pNew;
+          }
+
+          pIter->aIter[pIter->nIter].pVal = pVal;
+          pIter->aIter[pIter->nIter].current.pElem = 0;
+          pIter->aIter[pIter->nIter].current.iElem = 0;
+          pIter->nIter++;
+          rc = XJD1_DONE;
+        }
+      }
+    }
+  }
+  return rc;
+}
+
+/*
+** Free an iterator allocated by flattenIterNew().
+*/
+static void flattenIterFree(FlattenIter *pIter){
+  if( pIter ){
+    int i;
+    for(i=0; i<pIter->nIter; i++){
+      xjd1JsonFree(pIter->aIter[i].pVal);
+    }
+    xjd1_free(pIter);
+  }
+}
+
+
+
+/*
+** This function makes a copy of the JSON value (type XJD1_STRUCT) passed as
+** the first object, adds a property to it, and returns a pointer to the copy.
+** The ref-count of the returned object is 1.
+**
+** The name of the property added is passed as the zAs argument. The property
+** is set to a structure containing two fields, "k" (value pKey) and "v" 
+** (value pValue). i.e. if the arguments are as follows:
+**
+**     pBase   = {a:a, b:b}
+**     pKey    = "abc"
+**     pValue  = "xyz"
+**     zAs     = "c"
+**
+** then the returned object is:
+**
+**     {a:a, b:b, c:{k:"abc", v:"xyz"}}
+**
+** If object pBase already has a field named "zAs", then it is replaced in
+** the returned copy.
+**
+** This function decrements the ref-count of arguments pKey and pValue. But
+** not pBase.
+*/
 static JsonNode *flattenedObject(
-  JsonNode *pBase,
+  JsonNode *pBase,                /* Base object */
   JsonNode *pKey,
   JsonNode *pValue,
   const char *zAs
 ){
   JsonNode *pRet;                 /* Value to return */
-  JsonNode *pKV;                  /* Value to return */
+  JsonNode *pKV;                  /* New value for property zAs */
 
   pKV = xjd1JsonNew(0);
   pKV->eJType = XJD1_STRUCT;
@@ -85,25 +260,15 @@ static JsonNode *flattenedObject(
   xjd1JsonInsert(pKV, "v", pValue);
 
   pRet = xjd1JsonEdit(xjd1JsonRef(pBase));
-  assert( pRet->nRef==1 && pRet!=pBase );
   xjd1JsonInsert(pRet, zAs, pKV);
+  assert( pRet->nRef==1 && pRet!=pBase );
   return pRet;
 }
 
-static int valueIsEmpty(JsonNode *p){
-  if( p && ( 
-      (p->eJType==XJD1_ARRAY && p->u.ar.nElem>0)
-   || (p->eJType==XJD1_STRUCT && p->u.st.pFirst!=0)
-  )){
-    return 0;
-  }
-  return 1;
-}
-
 /*
-** Advance a data source to the next row.
-** Return XJD1_DONE if the data source is empty and XJD1_ROW if
-** the step results in a row of content being available.
+** Advance a data source to the next row. Return XJD1_DONE if the data 
+** source is at EOF or XJD1_ROW if the step results in a row of content 
+** being available.
 */
 int xjd1DataSrcStep(DataSrc *p){
   int rc= XJD1_DONE;
@@ -151,53 +316,31 @@ int xjd1DataSrcStep(DataSrc *p){
 
     case TK_FLATTENOP: {
       ExprItem *pItem = &p->u.flatten.pList->apEItem[0];
-
       xjd1JsonFree(p->pValue);
       p->pValue = 0;
-      rc = XJD1_ROW;
 
-      while( rc==XJD1_ROW && valueIsEmpty(p->u.flatten.pValue) ){
+      while( XJD1_ROW!=(rc = flattenIterNext(&p->u.flatten.pIter)) ){
+        flattenIterFree(p->u.flatten.pIter);
+        p->u.flatten.pIter = 0;
+
         rc = xjd1DataSrcStep(p->u.flatten.pNext);
-        if( rc==XJD1_ROW ){
-          p->u.flatten.pValue = xjd1ExprEval(pItem->pExpr);
-          p->u.flatten.iIdx = 0;
+        if( rc!=XJD1_ROW ){
+          break;
+        }else{
+          JsonNode *pVal = xjd1ExprEval(pItem->pExpr);
+          p->u.flatten.pIter = flattenIterNew(pVal, p->u.flatten.cOpName=='F');
         }
       }
 
       if( rc==XJD1_ROW ){
-        JsonNode *pOut = 0;
-        JsonNode *pVal = p->u.flatten.pValue;
+        JsonNode *pKey = 0;
+        JsonNode *pValue = 0;
         JsonNode *pBase = p->u.flatten.pNext->pValue;
-        int iIdx = p->u.flatten.iIdx++;
-        int bEof = 0;
+        flattenIterEntry(p->u.flatten.pIter, &pKey, &pValue);
 
-        switch( pVal->eJType ){
-          case XJD1_STRUCT: {
-            int i;
-            JsonStructElem *pElem = pVal->u.st.pFirst;
-            for(i=0; i<iIdx; i++) pElem = pElem->pNext;
-            bEof = (pElem->pNext==0);
-            pOut = flattenedObject(pBase, newStringValue(pElem->zLabel), 
-                xjd1JsonRef(pElem->pValue), pItem->zAs
-            );
-            break;
-          }
-          case XJD1_ARRAY: {
-            assert( iIdx<pVal->u.ar.nElem );
-            bEof = ( (iIdx+1)>=pVal->u.ar.nElem );
-            pOut = flattenedObject(pBase, newIntValue(iIdx),
-                xjd1JsonRef(pVal->u.ar.apElem[iIdx]), pItem->zAs
-            );
-            break;
-          }
-        }
-
-        if( bEof ){
-          p->u.flatten.pValue = 0;
-          xjd1JsonFree(p->u.flatten.pValue);
-        }
-        p->pValue = pOut;
+        p->pValue = flattenedObject(pBase, pKey, pValue, pItem->zAs);
       }
+
       break;
     }
 
@@ -276,9 +419,8 @@ int xjd1DataSrcRewind(DataSrc *p){
     }
     case TK_FLATTENOP: {
       xjd1DataSrcRewind(p->u.flatten.pNext);
-      xjd1JsonFree(p->u.flatten.pValue);
-      p->u.flatten.pValue = 0;
-      p->u.flatten.iIdx = 0;
+      flattenIterFree(p->u.flatten.pIter);
+      p->u.flatten.pIter = 0;
       break;
     }
     case TK_NULL: {
