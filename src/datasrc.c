@@ -43,10 +43,7 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       break;
     }
     case TK_FLATTENOP: {
-      const char *zOp = (p->u.flatten.cOpName=='E' ? "EACH" : "FLATTEN");
-      ExprItem *pItem = &p->u.flatten.pList->apEItem[0];
       xjd1DataSrcInit(p->u.flatten.pNext, pQuery);
-      rc = xjd1FlattenExprInit(pItem->pExpr,p->u.flatten.pNext,&pItem->zAs,zOp);
       break;
     }
     case TK_NULL:                 /* Initializing a NULL DS is a no-op */
@@ -67,6 +64,58 @@ static JsonNode *newStringValue(const char *z){
   JsonNode *pRet = xjd1JsonNew(0);
   pRet->eJType = XJD1_STRING;
   pRet->u.z = xjd1PoolDup(0, z, -1);
+  return pRet;
+}
+
+/*
+** Argument pPath is a an expression consisting entirely of TK_ID 
+** and TK_DOT noddes. e.g. "a.b.c.d". If value pVal contains the
+** identified property, a pointer to the JsonStructElem that contains
+** it is returned. 
+**
+** If bCreate is not true and object pVal does not contain the specified
+** property, NULL is returned. Or, if bCreate is true and pVal contains all
+** but the rightmost component of the path, a new element is added to the 
+** object and a pointer to it returned.
+*/
+static JsonStructElem *findStructElem(JsonNode *pVal, Expr *pPath, int bCreate){
+  JsonStructElem *pRet = 0;       /* Return value */
+
+  assert( bCreate==0 || pVal->nRef==1 );
+  assert( pPath->eType==TK_ID || pPath->eType==TK_DOT );
+
+  if( pVal && pVal->eJType==XJD1_STRUCT ){
+    JsonNode *p = 0;
+    const char *zAs;
+    if( pPath->eType==TK_DOT ){
+      JsonStructElem *pElem;
+      pElem = findStructElem(pVal, pPath->u.lvalue.pLeft, bCreate);
+      if( pElem ){
+        p = pElem->pValue;
+        zAs = pPath->u.lvalue.zId;
+      }
+    }else{
+      p = pVal;
+      zAs = pPath->u.id.zId;
+    }
+
+    if( p && p->eJType==XJD1_STRUCT ){
+      for(pRet=p->u.st.pFirst; pRet; pRet=pRet->pNext){
+        if( 0==strcmp(pRet->zLabel, zAs) ) break;
+      }
+      if( pRet==0 && bCreate ){
+        pRet = xjd1MallocZero(sizeof(*pRet));
+        pRet->zLabel = xjd1PoolDup(0, zAs, -1);
+        if( p->u.st.pLast ){
+          p->u.st.pLast->pNext = pRet;
+        }else{
+          p->u.st.pFirst = pRet;
+        }
+        p->u.st.pLast = pRet;
+      }
+    }
+  }
+
   return pRet;
 }
 
@@ -98,15 +147,28 @@ struct FlattenIter {
 ** or arrays (for the FLATTEN operator). Otherwise, the iteration is not
 ** recursive (used by the EACH operator).
 */
-static FlattenIter *flattenIterNew(JsonNode *pVal, int isRecursive){
-  FlattenIter *pNew;
-  pNew = (FlattenIter *)xjd1MallocZero(sizeof(FlattenIter));
-  if( pNew ){
-    pNew->nAlloc = 1;
-    pNew->nIter = 1;
-    pNew->isRecursive = isRecursive;
-    pNew->aIter[0].pVal = xjd1JsonRef(pVal);
+static FlattenIter *flattenIterNew(
+  JsonNode *pBase,                /* Base object */
+  Expr *pPath,                    /* Path to flatten or each on */
+  int isRecursive                 /* True for FLATTEN, false for EACH */
+){
+  FlattenIter *pNew = 0;          /* New iterator object */
+  JsonStructElem *pElem;
+
+  pElem = findStructElem(pBase, pPath, 0);
+  if( pElem ){
+    JsonNode *pVal = pElem->pValue;
+    if( pVal->eJType==XJD1_STRUCT || pVal->eJType==XJD1_ARRAY ){
+      pNew = (FlattenIter *)xjd1MallocZero(sizeof(FlattenIter));
+      if( pNew ){
+        pNew->nAlloc = 1;
+        pNew->nIter = 1;
+        pNew->isRecursive = isRecursive;
+        pNew->aIter[0].pVal = xjd1JsonRef(pVal);
+      }
+    }
   }
+
   return pNew;
 }
 
@@ -249,10 +311,11 @@ static JsonNode *flattenedObject(
   JsonNode *pBase,                /* Base object */
   JsonNode *pKey,
   JsonNode *pValue,
-  const char *zAs
+  Expr *pPath
 ){
   JsonNode *pRet;                 /* Value to return */
   JsonNode *pKV;                  /* New value for property zAs */
+  JsonStructElem *pElem;
 
   pKV = xjd1JsonNew(0);
   pKV->eJType = XJD1_STRUCT;
@@ -260,7 +323,10 @@ static JsonNode *flattenedObject(
   xjd1JsonInsert(pKV, "v", pValue);
 
   pRet = xjd1JsonEdit(xjd1JsonRef(pBase));
-  xjd1JsonInsert(pRet, zAs, pKV);
+  pElem = findStructElem(pRet, pPath, 1);
+  xjd1JsonFree(pElem->pValue);
+  pElem->pValue = pKV;
+  
   assert( pRet->nRef==1 && pRet!=pBase );
   return pRet;
 }
@@ -315,7 +381,6 @@ int xjd1DataSrcStep(DataSrc *p){
     }
 
     case TK_FLATTENOP: {
-      ExprItem *pItem = &p->u.flatten.pList->apEItem[0];
       xjd1JsonFree(p->pValue);
       p->pValue = 0;
 
@@ -327,8 +392,11 @@ int xjd1DataSrcStep(DataSrc *p){
         if( rc!=XJD1_ROW ){
           break;
         }else{
-          JsonNode *pVal = xjd1ExprEval(pItem->pExpr);
-          p->u.flatten.pIter = flattenIterNew(pVal, p->u.flatten.cOpName=='F');
+          int isRecursive = (p->u.flatten.cOpName=='F');
+          JsonNode *pBase = p->u.flatten.pNext->pValue;
+          Expr *pPath = p->u.flatten.pExpr;
+
+          p->u.flatten.pIter = flattenIterNew(pBase, pPath, isRecursive);
         }
       }
 
@@ -337,8 +405,7 @@ int xjd1DataSrcStep(DataSrc *p){
         JsonNode *pValue = 0;
         JsonNode *pBase = p->u.flatten.pNext->pValue;
         flattenIterEntry(p->u.flatten.pIter, &pKey, &pValue);
-
-        p->pValue = flattenedObject(pBase, pKey, pValue, pItem->zAs);
+        p->pValue = flattenedObject(pBase, pKey, pValue, p->u.flatten.pAs);
       }
 
       break;

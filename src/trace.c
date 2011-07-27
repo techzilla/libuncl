@@ -296,7 +296,9 @@ void xjd1TraceDataSrc(String *pOut, int indent, const DataSrc *p){
       xjd1TraceDataSrc(pOut, indent, p->u.flatten.pNext);
       xjd1StringAppendF(pOut, "%*s%s:\n", indent, "",
             p->u.flatten.cOpName=='E' ? "EACH" : "FLATTEN");
-      xjd1TraceExprList(pOut, indent+3, p->u.flatten.pList);
+      xjd1TraceExpr(pOut, p->u.flatten.pExpr);
+      xjd1StringAppendF(pOut, " AS ");
+      xjd1TraceExpr(pOut, p->u.flatten.pAs);
       break;
     }
   }

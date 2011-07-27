@@ -343,7 +343,8 @@ struct DataSrc {
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
       char cOpName;            /* 'E' or 'F' for "EACH" or "FLATTEN" */
-      ExprList *pList;         /* List of arguments */
+      Expr *pExpr;             /* Expression to flatten on */
+      Expr *pAs;               /* AS path, if any */
       FlattenIter *pIter;      /* Iterator */
     } flatten;
     struct {                /* A subquery.  eDSType==TK_SELECT */
@@ -421,7 +422,7 @@ JsonNode *xjd1ExprEval(Expr*);
 int xjd1ExprTrue(Expr*);
 int xjd1ExprClose(Expr*);
 int xjd1ExprListClose(ExprList*);
-int xjd1FlattenExprInit(Expr*, DataSrc *, char **, const char *);
+
 /* Candidates for the 4th parameter to xjd1ExprInit() */
 #define XJD1_EXPR_RESULT  1
 #define XJD1_EXPR_WHERE   2

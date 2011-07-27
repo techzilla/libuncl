@@ -37,31 +37,36 @@ SELECT FROM c3 EACH(2 AS y);
 .error SYNTAX syntax error near "2"
 
 .testcase 8
-SELECT FROM c3 EACH(a.b AS y);
-.error ERROR error in EACH expression
-
-.testcase 9
-SELECT FROM c3 FLATTEN(a.b AS y);
-.error ERROR error in FLATTEN expression
-
-
-.testcase 10
 CREATE COLLECTION c4;
 INSERT INTO c4 VALUE {a:1, b: [ [1, 2, 3], [4, 5, 6], [7, 8, 9] ]};
 INSERT INTO c4 VALUE {a:2, b: { x:[1, 2, 3], y:{t:4, u:5, v:6}, z:[7, 8, 9] }};
 SELECT c4.b.v FROM c4 FLATTEN(b) WHERE c4.a==1;
 .result 1 2 3 4 5 6 7 8 9
 
-.testcase 11
+.testcase 9
 SELECT c4.b.k FROM c4 FLATTEN(b) WHERE c4.a==1;
 .result [0,0] [0,1] [0,2] [1,0] [1,1] [1,2] [2,0] [2,1] [2,2]
 
-.testcase 12
+.testcase 10
 SELECT c4.c.v FROM c4 FLATTEN(b AS c) WHERE c4.a==2;
 .result 1 2 3 4 5 6 7 8 9
 
-.testcase 13
+.testcase 11
 SELECT c4.c.k FROM c4 FLATTEN(b AS c) WHERE c4.a==2;
 .result ["x",0] ["x",1] ["x",2] ["y","t"] ["y","u"] ["y","v"] ["z",0] ["z",1] ["z",2]
-  
-  
+
+.testcase 12
+CREATE COLLECTION c5;
+INSERT INTO c5 VALUE { a:1, b:2, c:{d:3, e:[4,5,6,7,8]} };
+SELECT c5.c.e.v FROM c5 EACH(c.e);
+.result 4 5 6 7 8
+
+.testcase 13
+SELECT c5.c.e.v FROM c5 EACH(c["e"]);
+.result 4 5 6 7 8
+
+.testcase 14
+SELECT c5.x.k FROM c5 EACH(c["e"] AS x);
+.result 0 1 2 3 4
+ 
+

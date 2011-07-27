@@ -487,14 +487,16 @@ sel_result(A) ::= expr(X) AS ID(Y).       {A.pExpr=X;A.zAs=tokenStr(p, &Y);}
     Parse *p,
     DataSrc *pLeft,
     Token *pOp,
-    ExprList *pArgs
+    Expr *pPath,
+    Expr *pAs
   ){
     DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
       pNew->eDSType = TK_FLATTENOP;
       pNew->u.flatten.pNext = pLeft;
       pNew->u.flatten.cOpName = pOp->z[0];
-      pNew->u.flatten.pList = pArgs;
+      pNew->u.flatten.pExpr = pPath;
+      pNew->u.flatten.pAs = (pAs ? pAs : pPath);
     }
     return pNew;
   }
@@ -518,12 +520,19 @@ fromlist(A) ::= fromlist(X) COMMA fromitem(Y).   {A = joinDataSrc(p,X,Y);}
 fromitem(A) ::= ID(X).                           {A = tblDataSrc(p,&X,0);}
 fromitem(A) ::= ID(X) AS ID(Y).                  {A = tblDataSrc(p,&X,&Y);}
 fromitem(A) ::= LP select(X) RP AS ID(Y).        {A = subqDataSrc(p,X,&Y);}
-fromitem(A) ::= fromitem(X) FLATTENOP(Y) LP eachexpr_list(Z) RP.
-                                                 {A = flattenDataSrc(p,X,&Y,Z);}
 
-%type eachexpr_list {ExprList*}
-eachexpr_list(A) ::= lvalue(Y).                  {A = apndExpr(p,0,Y,0);}
-eachexpr_list(A) ::= lvalue(Y) AS ID(Z).         {A = apndExpr(p,0,Y,&Z);}
+fromitem(A) ::= fromitem(W) FLATTENOP(X) LP eachexpr(Y) eachalias(Z) RP. {
+  A = flattenDataSrc(p,W,&X,Y,Z);
+}
+
+%type eachalias {Expr*}
+eachalias(A) ::= .                 {A=0;}
+eachalias(A) ::= AS ID|STRING(Y).  {A=idExpr(p,&Y);}
+
+%type eachexpr {Expr*}
+eachexpr(A) ::= ID(Y).                           {A = idExpr(p, &Y);        }
+eachexpr(A) ::= eachexpr(X) DOT ID(Y).           {A = lvalueExpr(p, X, &Y); }
+eachexpr(A) ::= eachexpr(X) LB ID|STRING(Y) RB.  {A = lvalueExpr(p, X, &Y); }
 
 %type groupby_opt {GroupByHaving}
 groupby_opt(A) ::= .                            {A.pGroupBy=0; A.pHaving=0;}

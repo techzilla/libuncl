@@ -379,6 +379,10 @@ int xjd1GetToken(const unsigned char *z, int *tokenType){
   return 1;
 }
 
+static void *parserAlloc(size_t N){ 
+  return xjd1_malloc((int)N); 
+}
+
 /*
 ** Run the parser on the given SQL string.  The parser structure is
 ** passed in.  An SQLITE_ status code is returned.  If an error occurs
@@ -409,7 +413,7 @@ int xjd1RunParser(
   }
 #endif
 
-  pEngine = xjd1ParserAlloc(xjd1_malloc);
+  pEngine = xjd1ParserAlloc(parserAlloc);
   memset(&sParse, 0, sizeof(sParse));
   if( pEngine==0 ){
     sParse.errCode = XJD1_NOMEM;
