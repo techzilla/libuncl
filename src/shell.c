@@ -322,6 +322,26 @@ static int shellNotGlob(Shell *p, int argc, char **argv){
   shellResultCheck(p,argc,argv,strnotglob);
   return 0;
 }
+/* Command:  .json PATTERN */
+static int shellJson(Shell *p, int argc, char **argv){
+  char *aArg[2];
+  String tidy;
+
+  assert( argc==1 || argc==2 );
+
+  xjd1StringInit(&tidy, 0, 0);
+  if( argc==2 ){
+    int rc = xjd1JsonTidy(&tidy, argv[1]);
+    assert( rc==XJD1_OK );
+  }
+
+  aArg[0] = argv[0];
+  aArg[1] = tidy.zBuf;
+  shellResultCheck(p, argc, aArg, strcmp);
+  xjd1StringClear(&tidy);
+
+  return 0;
+}
 
 /*
 ** Command:  .open FILENAME
@@ -413,8 +433,7 @@ static void checkForTestError(Shell *p){
 **
 ** Return 1 to abort or 0 to continue.
 */
-static int processMetaCommand(Shell *p){
-  char *z;
+static int processMetaCommand(Shell *p){ char *z;
   int n;
   char *azArg[2];
   int nArg;
@@ -427,6 +446,7 @@ static int processMetaCommand(Shell *p){
   } cmds[] = {
     { "quit",       shellQuit,        ".quit"               },
     { "testcase",   shellTestcase,    ".testcase NAME"      },
+    { "json",       shellJson,        ".json TEXT"          },
     { "result",     shellResult,      ".result TEXT"        },
     { "glob",       shellGlob,        ".glob PATTERN"       },
     { "notglob",    shellNotGlob,     ".notglob PATTERN"    },
@@ -447,6 +467,15 @@ static int processMetaCommand(Shell *p){
   n = xjd1StringLen(&p->inBuf);
   while( n>0 && shellIsSpace(z[n-1]) ){ n--; }
   z[n] = 0;
+
+  /* If the last character of the command is a backslash, the command 
+  ** arguments continue onto the next line. Return early without truncating
+  ** the input buffer in this case. */
+  if( z[n-1]=='\\' ){
+    p->inBuf.nUsed = n;
+    z[n-1] = ' ';
+    return 0;
+  }
 
   /* Find the command name text and its argument (if any) */
   z++;

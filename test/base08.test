@@ -5,32 +5,35 @@ INSERT INTO c1 VALUE { w:"hi", x:["a",{b:123},456] };
 
 .testcase 1
 SELECT FROM c1 EACH(x AS y);
-.result {"w":"hi","x":["a",{"b":123},456],"y":{"k":0,"v":"a"}} {"w":"hi","x":["a",{"b":123},456],"y":{"k":1,"v":{"b":123}}} {"w":"hi","x":["a",{"b":123},456],"y":{"k":2,"v":456}}
+.json {w:"hi", x:["a",{b:123},456], y:{k:0,v:"a"}}     \
+      {w:"hi", x:["a",{b:123},456], y:{k:1,v:{b:123}}} \
+      {w:"hi", x:["a",{b:123},456], y:{k:2,v:456}}
 
 .testcase 2
 CREATE COLLECTION c2;
 INSERT INTO c2 VALUE { z:"one", l:[1,2,8] };
 INSERT INTO c2 VALUE { z:"two", l:[2,4,6] };
 SELECT c2.z FROM c2 EACH(l);
-.result "one" "one" "one" "two" "two" "two"
+.json "one" "one" "one" "two" "two" "two"
 
 .testcase 3
 SELECT c2.l.v AS v FROM c2 EACH(l) ORDER BY v DESC;
-.result 8 6 4 2 2 1
+.json 8 6 4 2 2 1
 
 .testcase 4
 SELECT c2.m.v AS v FROM c2 EACH(l AS m) WHERE c2.z=="one" ORDER BY v%4;
-.result 8 1 2
+.json 8 1 2
 
 .testcase 5
 CREATE COLLECTION c3;
 INSERT INTO c3 VALUE {y:0, x:{a:"A",b:"B"}};
 SELECT FROM c3 EACH(x);
-.result {"y":0,"x":{"k":"a","v":"A"}} {"y":0,"x":{"k":"b","v":"B"}}
+.json {y:0, x:{k:"a", v:"A"}} {y:0, x:{k:"b", v:"B"}}
 
 .testcase 6
 SELECT FROM c3 EACH(x AS y);
-.result {"y":{"k":"a","v":"A"},"x":{"a":"A","b":"B"}} {"y":{"k":"b","v":"B"},"x":{"a":"A","b":"B"}}
+.json {y:{k:"a", v:"A"}, x:{a:"A", b:"B"}} \
+      {y:{k:"b", v:"B"}, x:{a:"A", b:"B"}}
 
 .testcase 7
 SELECT FROM c3 EACH(2 AS y);
@@ -41,32 +44,39 @@ CREATE COLLECTION c4;
 INSERT INTO c4 VALUE {a:1, b: [ [1, 2, 3], [4, 5, 6], [7, 8, 9] ]};
 INSERT INTO c4 VALUE {a:2, b: { x:[1, 2, 3], y:{t:4, u:5, v:6}, z:[7, 8, 9] }};
 SELECT c4.b.v FROM c4 FLATTEN(b) WHERE c4.a==1;
-.result 1 2 3 4 5 6 7 8 9
+.json 1 2 3 4 5 6 7 8 9
 
 .testcase 9
 SELECT c4.b.k FROM c4 FLATTEN(b) WHERE c4.a==1;
-.result [0,0] [0,1] [0,2] [1,0] [1,1] [1,2] [2,0] [2,1] [2,2]
+.json [0,0] [0,1] [0,2] [1,0] [1,1] [1,2] [2,0] [2,1] [2,2]
 
 .testcase 10
 SELECT c4.c.v FROM c4 FLATTEN(b AS c) WHERE c4.a==2;
-.result 1 2 3 4 5 6 7 8 9
+.json 1 2 3 4 5 6 7 8 9
 
 .testcase 11
 SELECT c4.c.k FROM c4 FLATTEN(b AS c) WHERE c4.a==2;
-.result ["x",0] ["x",1] ["x",2] ["y","t"] ["y","u"] ["y","v"] ["z",0] ["z",1] ["z",2]
+.json ["x",0]   ["x",1]   ["x",2]   \
+      ["y","t"] ["y","u"] ["y","v"] \
+      ["z",0]   ["z",1]   ["z",2]
 
 .testcase 12
 CREATE COLLECTION c5;
 INSERT INTO c5 VALUE { a:1, b:2, c:{d:3, e:[4,5,6,7,8]} };
 SELECT c5.c.e.v FROM c5 EACH(c.e);
-.result 4 5 6 7 8
+.json 4 5 6 7 8
 
 .testcase 13
 SELECT c5.c.e.v FROM c5 EACH(c["e"]);
-.result 4 5 6 7 8
+.json 4 5 6 7 8
 
 .testcase 14
 SELECT c5.x.k FROM c5 EACH(c["e"] AS x);
-.result 0 1 2 3 4
+.json 0 1 2 3 4
+
+.testcase 15
+SELECT FROM c5;
+SELECT c5.x.k FROM c5 EACH(c["e"] AS x);
+.json {a:1, b:2, c:{d:3, e:[4,5,6,7,8]}} 0 1 2 3 4
  
 

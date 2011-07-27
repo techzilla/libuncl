@@ -445,6 +445,7 @@ void xjd1JsonFree(JsonNode*);
 void xjd1JsonToNull(JsonNode*);
 void xjd1DequoteString(char*,int);
 int xjd1JsonInsert(JsonNode *, const char *, JsonNode *);
+int xjd1JsonTidy(String *, const char *);
 
 /******************************** memory.c ***********************************/
 Pool *xjd1PoolNew(void);

@@ -713,6 +713,60 @@ JsonNode *xjd1JsonParse(const char *zIn, int mxIn){
 }
 
 /*
+** This function is used by the XJD1 shell in test mode. It assumes that
+** the string zIn contains a list of white-space separated JSON values.
+** It appends the contents of zIn to string pOut, making the following
+** edits:
+**
+**   1. All white-space that appears inside of struct or array values 
+**      is removed. A single space characer is left between each top 
+**      level value.
+**
+**   2. Double quotes are added to any unquoted sequences of alphabetic 
+**      characters (which are illegal in JSON).
+**
+** For example, the following input:
+**
+**      {a:1,  "b":[1, 3, 4]}   [1,2]
+**
+** is transformed to:
+**
+**      {"a":1,"b":[1,3,4]} [1,2]
+**
+** before it is appended to pOut.
+*/
+int xjd1JsonTidy(String *pOut, const char *zIn){
+  int nOpen = 0;                  /* Number of open {} or [] brackets */
+  JsonStr x;                      /* Wrapper around zIn */
+
+  /* Set up the string wrapper to tokenize zIn */
+  x.zIn = zIn;
+  x.mxIn = xjd1Strlen30(zIn);
+  x.iCur = 0;
+  x.n = 0;
+  x.eType = 0;
+
+  while( 1 ){
+    int ePrev = x.eType;
+    tokenNext(&x);
+    if( x.eType==JSON_EOF ) break;
+    if( ePrev && nOpen==0 ) xjd1StringAppend(pOut, " ", 1);
+    if( x.eType==JSON_BEGIN_ARRAY || x.eType==JSON_BEGIN_STRUCT ) nOpen++;
+    if( x.eType==JSON_END_ARRAY   || x.eType==JSON_END_STRUCT ) nOpen--;
+    if( x.eType==JSON_ERROR && xjd1Isalpha(zIn[x.iCur]) ){
+      while( xjd1Isalpha(zIn[x.iCur+x.n]) ) x.n++;
+      xjd1StringAppend(pOut, "\"", 1);
+      xjd1StringAppend(pOut, &zIn[x.iCur], x.n);
+      xjd1StringAppend(pOut, "\"", 1);
+    }else{
+      xjd1StringAppend(pOut, &zIn[x.iCur], x.n);
+    }
+  }while( x.eType!=JSON_EOF );
+
+  return XJD1_OK;
+}
+
+/*
 ** The JsonNode passed as the first argument must be of type XJD1_STRUCT.
 ** This function adds a property to the object. The name of the new 
 ** property is passed as the second argument to this function. The third
