@@ -188,6 +188,9 @@ jvalue(A) ::= NULL.                    {A = jsonType(p,XJD1_NULL);}
       pNew->eType = TK_FUNCTION; 
       pNew->eClass = XJD1_EXPR_FUNC;
       pNew->u.func.zFName = tokenStr(p, pFName);
+      if( pArgs==0 ){
+        pArgs = xjd1PoolMallocZero(p->pPool, sizeof(ExprList));
+      }
       pNew->u.func.args = pArgs;
     }
     return pNew;

@@ -1,0 +1,75 @@
+-- Test the aggregate functions - avg()
+--
+
+.new t1.db
+
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {a:1, b:6,  c:4, d:"abc"};
+INSERT INTO c1 VALUE {a:2, b:4,  c:3, d:null };
+INSERT INTO c1 VALUE {a:3, b:2,  c:2, d:0.0  };
+INSERT INTO c1 VALUE {a:4, b:8,  c:1         };
+INSERT INTO c1 VALUE {a:5, b:10, c:5, d:-1.0 };
+INSERT INTO c1 VALUE {a:6, b:10, c:5, d:null };
+
+
+.testcase 1
+SELECT count()  FROM c1 WHERE c1.a == -1;
+SELECT count()  FROM c1 WHERE c1.a == 1;
+SELECT count(c1.d) FROM c1 WHERE c1.a<5;
+.json 0 1 2
+
+.testcase 2
+SELECT min(c1.a) FROM c1 WHERE c1.a==-1;
+SELECT min(c1.a) FROM c1 WHERE c1.a<5;
+SELECT min(c1.c) FROM c1 WHERE c1.a<5;
+SELECT min(c1.b) FROM c1 WHERE c1.a<5;
+SELECT min(c1.d) FROM c1 WHERE c1.a<5;
+SELECT min(c1.d) FROM c1 WHERE c1.a<6;
+SELECT min(c1.d) FROM c1 WHERE c1.a<3;
+.result null 1 1 2 0 -1 null
+
+.testcase 3
+SELECT max(c1.a) FROM c1 WHERE c1.a==-1;
+SELECT max(c1.a) FROM c1 WHERE c1.a<5;
+SELECT max(c1.c) FROM c1 WHERE c1.a<5;
+SELECT max(c1.b) FROM c1 WHERE c1.a<5;
+SELECT max(c1.d) FROM c1 WHERE c1.a<5;
+SELECT max(c1.d) FROM c1 WHERE c1.a<6;
+SELECT max(c1.d) FROM c1 WHERE c1.a<3;
+SELECT max(c1.d) FROM c1 WHERE c1.a>4;
+.result null 4 4 8 "abc" "abc" "abc" null
+
+.testcase 4
+SELECT array(c1.a) FROM c1 WHERE c1.a==-1;
+SELECT array(c1.a) FROM c1 WHERE c1.a<7;
+.json [] [1,2,3,4,5,6]
+
+.testcase 5
+SELECT sum(c1.a) FROM c1 WHERE c1.a==-1;
+SELECT sum(c1.a) FROM c1 WHERE c1.a<7;
+SELECT sum(c1.d) FROM c1 WHERE c1.a<7 && c1.a>4;
+.json 0 21 -1
+
+.testcase 6
+SELECT avg(c1.a) FROM c1 WHERE c1.a==-1;
+SELECT avg(c1.a) FROM c1 WHERE c1.a<7;
+SELECT avg(c1.d) FROM c1 WHERE c1.a<7 && c1.a>1;
+.json null 3.5 -0.2
+
+
+.testcase 7
+SELECT count(c1.a,c1.b) FROM c1;
+.error ERROR wrong number of arguments to function count()
+.testcase 8
+SELECT array() FROM c1;
+.error ERROR wrong number of arguments to function array()
+.testcase 9
+SELECT array(c1.a,c1.b) FROM c1;
+.error ERROR wrong number of arguments to function array()
+.testcase 10
+SELECT max() FROM c1;
+.error ERROR wrong number of arguments to function max()
+.testcase 11
+SELECT max(c1.a,c1.b) FROM c1;
+.error ERROR wrong number of arguments to function max()
+
