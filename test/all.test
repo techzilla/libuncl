@@ -10,3 +10,4 @@
 .read base08.test
 .read base09.test
 .read base10.test
+.read error01.test

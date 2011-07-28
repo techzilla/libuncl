@@ -417,12 +417,18 @@ compound(A) ::= esel(X) INTERSECT(OP) esel(Y). {A=compoundQuery(p,X,@OP,Y);}
 esel(A) ::= compound(X).                       {A = X;}
 esel(A) ::= expr(X). {
   /* TODO: Fix these error messages */
-  if( X->eClass!=XJD1_EXPR_Q ){
-    xjd1ParseError(p, XJD1_SYNTAX, "syntax error");
-  }else{
-    A = X->u.subq.p;
-    if( A->pOrderBy || A->pLimit ){
-      xjd1ParseError(p, XJD1_SYNTAX, "syntax error");
+  if( p->errCode==XJD1_OK ){
+    if( X->eClass!=XJD1_EXPR_Q ){
+      xjd1ParseError(p, XJD1_SYNTAX,
+        "syntax error near \"%.*s\"", p->sTok.n, p->sTok.z
+      );
+    }else{
+      A = X->u.subq.p;
+      if( A->pOrderBy || A->pLimit ){
+        xjd1ParseError(p, XJD1_SYNTAX,
+          "syntax error near \"%.*s\"", p->sTok.n, p->sTok.z
+        );
+      }
     }
   }
 }

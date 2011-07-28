@@ -477,8 +477,10 @@ abort_parse:
 */
 void xjd1ParseError(Parse *p, int errCode, const char *zFormat, ...){
   va_list ap;
-  p->errCode = errCode;
-  va_start(ap, zFormat);
-  xjd1StringVAppendF(&p->errMsg, zFormat, ap);
-  va_end(ap);
+  if( p->errCode==XJD1_OK ){
+    p->errCode = errCode;
+    va_start(ap, zFormat);
+    xjd1StringVAppendF(&p->errMsg, zFormat, ap);
+    va_end(ap);
+  }
 }
