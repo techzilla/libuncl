@@ -645,7 +645,7 @@ upsert_opt(A) ::= ELSE INSERT expr(X).    {A = X;}
 
 ////////////////////////// The INSERT command /////////////////////////////////
 //
-cmd(A) ::= INSERT INTO tabname(N) VALUE expr(V). {
+cmd(A) ::= async INSERT INTO tabname(N) VALUE expr(V). {
   Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
@@ -654,7 +654,7 @@ cmd(A) ::= INSERT INTO tabname(N) VALUE expr(V). {
   }
   A = pNew;
 }
-cmd(A) ::= INSERT INTO tabname(N) select(Q). {
+cmd(A) ::= async INSERT INTO tabname(N) select(Q). {
   Command *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
   if( pNew ){
     pNew->eCmdType = TK_INSERT;
@@ -663,6 +663,9 @@ cmd(A) ::= INSERT INTO tabname(N) select(Q). {
   }
   A = pNew;
 }
+async ::= .
+async ::= ASYNC.
+async ::= SYNC.
 
 ////////////////////////// The PRAGMA command /////////////////////////////////
 //
