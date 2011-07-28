@@ -145,16 +145,41 @@ static void sortResultList(ResultList *pList, ExprList *pEList, int uniq){
 #endif
 }
 
-static void popResultList(ResultList *pList){
-  ResultItem *pItem;
+static void freeResultListItem(ResultList *pList, ResultItem *pItem){
   int i;
-
-  pItem = pList->pItem;
-  pList->pItem = pItem->pNext;
   for(i=0; i<pList->nKey; i++){
     xjd1JsonFree(pItem->apKey[i]);
   }
 }
+
+static void popResultList(ResultList *pList){
+  ResultItem *pItem;
+  pItem = pList->pItem;
+  if( pItem ){
+    pList->pItem = pItem->pNext;
+    freeResultListItem(pList, pItem);
+  }
+}
+
+/*
+** These two are used GROUP BY processing.
+*/
+static void saveResultList(ResultList *pList){
+  if( pList->pSaved ){
+    freeResultListItem(pList, pList->pSaved);
+  }
+  pList->pSaved = pList->pItem;
+  pList->pItem = pList->pItem->pNext;
+}
+static void restoreResultList(ResultList *pList){
+  if( pList->pSaved ){
+    popResultList(pList);
+    pList->pSaved->pNext = pList->pItem;
+    pList->pItem = pList->pSaved;
+    pList->pSaved = 0;
+  }
+}
+
 
 static void clearResultList(ResultList *pList){
   while( pList->pItem ) popResultList(pList);
@@ -273,6 +298,7 @@ static int selectStepGrouped(Query *p){
       if( p->u.simple.grouped.pPool==0 ){
         JsonNode **apSrc;
         int nSrc;
+        int saved = 0;;
         Pool *pPool;
 
         pPool = p->u.simple.grouped.pPool = xjd1PoolNew();
@@ -285,8 +311,12 @@ static int selectStepGrouped(Query *p){
         /* Call the xStep() of each aggregate in the query for each row 
         ** matched by the query WHERE clause. */
         while( rc==XJD1_OK && XJD1_ROW==(rc = selectStepWhered(p) ) ){
-          rc = xjd1AggregateStep(pAgg);
-          xjd1DataSrcCacheSave(p->u.simple.pFrom, apSrc);
+          int saveThisRow = 0;
+          rc = xjd1AggregateStep(pAgg, &saveThisRow);
+          if( saved==0 || saveThisRow ){
+            xjd1DataSrcCacheSave(p->u.simple.pFrom, apSrc);
+            saved = 1;
+          }
         }
         assert( rc!=XJD1_OK );
         if( rc==XJD1_DONE ){
@@ -359,14 +389,18 @@ static int selectStepGrouped(Query *p){
           rc = XJD1_DONE;
         }else{
           while( 1 ){
+            int saveThisRow = 0;
             ResultItem *pNext = pItem->pNext;
-            rc = xjd1AggregateStep(pAgg);
+            rc = xjd1AggregateStep(pAgg, &saveThisRow);
+            if( saveThisRow ) saveResultList(&p->u.simple.grouped);
             if( rc || !pNext || cmpResultItem(pItem, pNext, pGroupBy) ){
+              restoreResultList(&p->u.simple.grouped);
               break;
             }
-            popResultList(&p->u.simple.grouped);
+            if( !saveThisRow ) popResultList(&p->u.simple.grouped);
             pItem = p->u.simple.grouped.pItem;
           }
+
           if( XJD1_OK==rc && XJD1_OK==(rc = xjd1AggregateFinalize(pAgg)) ){
             rc = XJD1_ROW;
           }

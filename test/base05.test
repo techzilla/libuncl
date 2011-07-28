@@ -77,7 +77,7 @@ SELECT count(c1) FROM c1 WHERE c1.i < 10;
 
 .testcase 13
 SELECT {a: count(c1), b : c1} FROM c1;
-.result {"a":17,"b":{"i":11,"z":"Fig"}}
+.result {"a":17,"b":{"i":13,"z":"Grape"}}
 
 .testcase 14
 SELECT count(c1) FROM c1, c1 AS b;
@@ -115,4 +115,36 @@ SELECT DISTINCT c2.a FROM c2;
 .testcase 20
 SELECT DISTINCT c2.a FROM c2 ORDER BY c2.a DESC;
 .result "c" "b" "a"
+
+
+
+-- Test the magneticness of max() and min().
+--
+CREATE COLLECTION c3;
+INSERT INTO c3 VALUE { a:2, z:"two" };
+INSERT INTO c3 VALUE { a:3, z:"three"};
+INSERT INTO c3 VALUE { a:7, z:"seven"};
+INSERT INTO c3 VALUE { a:5, z:"five"};
+INSERT INTO c3 VALUE { a:1, z:"one"};
+INSERT INTO c3 VALUE { a:4, z:"four"};
+INSERT INTO c3 VALUE { a:6, z:"six"};
+
+.testcase 21
+SELECT { max: max(c3.a), z: c3.z } FROM c3;
+.json {max:7, z:"seven"}
+
+.testcase 22
+SELECT { min: min(c3.a), z: c3.z } FROM c3;
+.json {min:1, z:"one"}
+
+.testcase 23
+SELECT { min: min(c3.a), z: c3.z } FROM c3 GROUP BY c3.a%2;
+.json {min:2, z:"two"} {min:1, z:"one"} 
+
+.testcase 24
+SELECT { max: max(c3.a), z: c3.z } FROM c3 GROUP BY c3.a%2;
+.json {max:6, z:"six"} {max:7, z:"seven"}
+
+
+
 

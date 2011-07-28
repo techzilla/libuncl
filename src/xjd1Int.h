@@ -268,6 +268,7 @@ struct Parse {
 struct ResultList {
   Pool *pPool;
   int nKey;
+  ResultItem *pSaved;
   ResultItem *pItem;
 };
 
@@ -519,7 +520,7 @@ JsonNode *xjd1FunctionEval(Expr *p);
 void xjd1FunctionClose(Expr *p);
 
 int xjd1AggregateInit(xjd1_stmt *, Query *, Expr *);
-int xjd1AggregateStep(Aggregate *);
+int xjd1AggregateStep(Aggregate *, int *);
 int xjd1AggregateFinalize(Aggregate *);
 void xjd1AggregateClear(Query *);
 

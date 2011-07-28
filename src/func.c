@@ -26,7 +26,7 @@ struct Function {
   int nMaxArg;
   const char *zName;
   JsonNode *(*xFunc)(int nArg, JsonNode **apArg);
-  int (*xStep)(int nArg, JsonNode **apArg, void **);
+  int (*xStep)(int nArg, JsonNode **apArg, void **, int *pbSave);
   JsonNode *(*xFinal)(void *);
 };
 
@@ -78,7 +78,7 @@ struct Function {
 /*
 ** Aggregate function count().
 */
-static int xCountStep(int nArg, JsonNode **apArg, void **pp){
+static int xCountStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   int *pnCount = (int *)*pp;
   if( pnCount==0 ){
     pnCount = xjd1MallocZero(sizeof(int));
@@ -103,7 +103,7 @@ static JsonNode *xCountFinal(void *p){
 /*
 ** Aggregate functions min() and max().
 */
-static int xMinStep(int nArg, JsonNode **apArg, void **pp){
+static int xMinStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   JsonNode *pArg;
   JsonNode *pBest = *pp;
   assert( nArg==1 );
@@ -111,10 +111,11 @@ static int xMinStep(int nArg, JsonNode **apArg, void **pp){
   if( !pBest || xjd1JsonCompare(pArg, pBest)<0 ){
     xjd1JsonFree(pBest);
     *pp = (void *)xjd1JsonRef(pArg);
+    *pbSave = 1;
   }
   return XJD1_OK;
 }
-static int xMaxStep(int nArg, JsonNode **apArg, void **pp){
+static int xMaxStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   JsonNode *pArg;
   JsonNode *pBest = *pp;
   assert( nArg==1 );
@@ -122,6 +123,7 @@ static int xMaxStep(int nArg, JsonNode **apArg, void **pp){
   if( !pBest || xjd1JsonCompare(pArg, pBest)>0 ){
     xjd1JsonFree(pBest);
     *pp = (void *)xjd1JsonRef(pArg);
+    *pbSave = 1;
   }
   return XJD1_OK;
 }
@@ -139,7 +141,7 @@ static JsonNode *xMinMaxFinal(void *p){
 /*
 ** Aggregate function array().
 */
-static int xArrayStep(int nArg, JsonNode **apArg, void **pp){
+static int xArrayStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   JsonNode *pArray = (JsonNode *)*pp;
   JsonNode *pArg = apArg[0];
   int nNew;
@@ -168,7 +170,7 @@ static JsonNode *xArrayFinal(void *p){
 /*
 ** Aggregate function sum()
 */
-static int xSumStep(int nArg, JsonNode **apArg, void **pp){
+static int xSumStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   JsonNode *pVal = (JsonNode *)*pp;
   double rVal = 0.0;
   if( !pVal ){
@@ -198,7 +200,7 @@ struct AvgCtx {
   int nRow;
   double rSum;
 };
-static int xAvgStep(int nArg, JsonNode **apArg, void **pp){
+static int xAvgStep(int nArg, JsonNode **apArg, void **pp, int *pbSave){
   AvgCtx *pCtx = (AvgCtx *)*pp;
   double rVal = 0.0;
   if( !pCtx ){
@@ -388,7 +390,7 @@ int xjd1FunctionInit(Expr *p, xjd1_stmt *pStmt, Query *pQuery, int eExpr){
   return XJD1_OK;
 }
 
-static int aggExprStep(AggExpr *pAggExpr){
+static int aggExprStep(AggExpr *pAggExpr, int *pbSave){
   Expr *p = pAggExpr->pExpr;
   Function *pFunc = p->u.func.pFunction;
   int i;
@@ -401,7 +403,7 @@ static int aggExprStep(AggExpr *pAggExpr){
     p->u.func.apArg[i] = xjd1ExprEval(p->u.func.args->apEItem[i].pExpr);
   }
 
-  pFunc->xStep(nItem, p->u.func.apArg, &pAggExpr->pAggCtx);
+  pFunc->xStep(nItem, p->u.func.apArg, &pAggExpr->pAggCtx, pbSave);
   for(i=0; i<nItem; i++){
     xjd1JsonFree(p->u.func.apArg[i]);
   }
@@ -409,10 +411,13 @@ static int aggExprStep(AggExpr *pAggExpr){
   return XJD1_OK;
 }
 
-int xjd1AggregateStep(Aggregate *pAgg){
+int xjd1AggregateStep(
+  Aggregate *pAgg, 
+  int *pbSave                     /* OUT: True if this row should be saved */
+){
   int i;                /* Used to iterate through aggregate functions */
   for(i=0; i<pAgg->nExpr; i++){
-    int rc = aggExprStep(&pAgg->aAggExpr[i]);
+    int rc = aggExprStep(&pAgg->aAggExpr[i], pbSave);
     if( rc!=XJD1_OK ) return rc;
   }
   return XJD1_OK;;
