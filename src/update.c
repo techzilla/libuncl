@@ -126,7 +126,7 @@ int xjd1UpdateStep(xjd1_stmt *pStmt){
         String jsonNewDoc;  /* Text rendering of revised document */
         int i, n;
 
-        pNewDoc  = xjd1JsonRef(pStmt->pDoc);
+        pNewDoc = xjd1JsonEdit(xjd1JsonRef(pStmt->pDoc));
         pChng = pCmd->u.update.pChng;
         n = pChng->nEItem;
         for(i=0; i<n-1; i += 2){

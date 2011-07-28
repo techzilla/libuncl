@@ -441,6 +441,7 @@ int xjd1JsonToString(const JsonNode*, String*);
 int xjd1JsonCompare(const JsonNode*, const JsonNode*);
 JsonNode *xjd1JsonNew(Pool*);
 JsonNode *xjd1JsonEdit(JsonNode*);
+JsonNode *xjd1JsonDeepCopy(JsonNode*);
 void xjd1JsonFree(JsonNode*);
 void xjd1JsonToNull(JsonNode*);
 void xjd1DequoteString(char*,int);

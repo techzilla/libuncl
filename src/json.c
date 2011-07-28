@@ -94,14 +94,11 @@ JsonNode *xjd1JsonRef(JsonNode *p){
 
 
 /*
-** Return an editable JSON object.  A JSON object is editable if its
-** reference count is exactly 1.  If the input JSON object has a reference
-** count greater than 1, then make a copy and return the copy.
+** Return a deep copy of a JSON object.
 */
-JsonNode *xjd1JsonEdit(JsonNode *p){
+JsonNode *xjd1JsonDeepCopy(JsonNode *p){
   JsonNode *pNew;
   if( p==0 ) return 0;
-  if( p->nRef==1 ) return p;
   pNew = xjd1JsonNew(0);
   if( pNew==0 ) return 0;
   pNew->eJType = p->eJType;
@@ -120,7 +117,7 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
         int i;
         pNew->u.ar.nElem = p->u.ar.nElem;
         for(i=0; i<p->u.ar.nElem; i++){
-          ap[i] = xjd1JsonRef(p->u.ar.apElem[i]);
+          ap[i] = xjd1JsonDeepCopy(p->u.ar.apElem[i]);
         }
       }
       break;
@@ -135,13 +132,23 @@ JsonNode *xjd1JsonEdit(JsonNode *p){
         *ppPrev = pDest;
         ppPrev = &pDest->pNext;
         pDest->zLabel = xjd1PoolDup(0, pSrc->zLabel, -1);
-        pDest->pValue = xjd1JsonRef(pSrc->pValue);
+        pDest->pValue = xjd1JsonDeepCopy(pSrc->pValue);
       }
       break;
     }
   }
-  p->nRef--;
   return pNew;
+}
+
+/*
+** Return an editable JSON object.  A JSON object is editable if its
+** reference count is exactly 1.  If the input JSON object has a reference
+** count greater than 1, then make a copy and return the copy.
+*/
+JsonNode *xjd1JsonEdit(JsonNode *p){
+  if( p==0 ) return 0;
+  if( p->nRef==1 ) return p;
+  return xjd1JsonDeepCopy(p);
 }
 
 
