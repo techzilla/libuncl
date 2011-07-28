@@ -1,0 +1,49 @@
+-- Test using a reference to an outer query property as a variable.
+--
+
+.new t1.db
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE {docid:1, tags:["a", "b", "c"]};
+INSERT INTO c1 VALUE {docid:2, tags:[     "b", "c"]};
+INSERT INTO c1 VALUE {docid:3, tags:[          "c", "d", "e"]};
+INSERT INTO c1 VALUE {docid:4, tags:[]};
+INSERT INTO c1 VALUE {docid:5};
+
+.testcase 0
+SELECT FROM c1;
+.json {docid:1, tags:["a", "b", "c"]}               \
+      {docid:2, tags:[     "b", "c"]}               \
+      {docid:3, tags:[          "c", "d", "e"]}     \
+      {docid:4, tags:[]}                            \
+      {docid:5} 
+
+-- All documents with tag "b"
+--
+.testcase 1
+SELECT c1.docid FROM c1 WHERE (SELECT 1 FROM c1.tags AS t WHERE t=="b");
+.result 1 2
+
+-- All documents with at least one tag that do not have a tag greater than "c"
+--
+.testcase 2
+SELECT c1.docid FROM c1 WHERE (
+  SELECT count()==0 FROM c1.tags AS t WHERE t>"c"
+);
+.result 1 2 4 5
+
+-- All documents with more than two tags.
+--
+.testcase 3
+SELECT c1.docid FROM c1 WHERE (SELECT count()>2 FROM c1.tags AS t);
+.result 1 3
+
+-- Each document and it's smallest tag.
+--
+.testcase 4
+SELECT {docid: c1.docid, smallest: (SELECT min(t) FROM c1.tags AS t) } FROM c1;
+.json {docid:1, smallest:"a"} {docid:2, smallest:"b"}    \
+      {docid:3, smallest:"c"} {docid:4, smallest:null}   \
+      {docid:5, smallest:null}
+
+
+

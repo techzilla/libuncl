@@ -96,64 +96,67 @@ static int walkExpr(Expr *p, int (*xFunc)(Expr *,void *), void *pCtx){
 }
 
 static int exprResolve(Expr *p, ResolveCtx *pCtx){
-  int eExpr = pCtx->eExpr;
+  Command *pCmd = pCtx->pStmt->pCmd;
   const char *zDoc;
 
-  assert( eExpr>0 || (pCtx->pQuery==0 && pCtx->pStmt) );
-
   zDoc = p->u.id.zId;
-  if( eExpr==0 ){
-    Command *pCmd = pCtx->pStmt->pCmd;
-    switch( pCmd->eCmdType ){
-      case TK_DELETE:
-        if( 0==strcmp(zDoc, pCmd->u.del.zName) ) return XJD1_OK;
-        break;
-      case TK_UPDATE:
-        if( 0==strcmp(zDoc, pCmd->u.update.zName) ) return XJD1_OK;
-        break;
+  switch( pCmd->eCmdType ){
+    case TK_DELETE:
+      if( 0==strcmp(zDoc, pCmd->u.del.zName) ) return XJD1_OK;
+      break;
 
-      default:
-        assert( 0 );
-        break;
-    }
-  }else{
-    ResolveCtx *pTest;
-    for(pTest=pCtx; pTest; pTest=pTest->pParent){
-      Query *pQuery = pTest->pQuery;
-      int bFound = 0;
-  
-      assert( pQuery->eQType==TK_SELECT || eExpr==XJD1_EXPR_ORDERBY );
-  
-      /* Search the FROM clause. */
-      if( pQuery->eQType==TK_SELECT && (
-            eExpr==XJD1_EXPR_RESULT  || eExpr==XJD1_EXPR_WHERE ||
-            eExpr==XJD1_EXPR_GROUPBY || eExpr==XJD1_EXPR_HAVING ||
-            eExpr==XJD1_EXPR_ORDERBY
-      )){
-        int iDatasrc = xjd1DataSrcResolve(pQuery->u.simple.pFrom, zDoc);
-        if( iDatasrc ){
-          p->u.id.iDatasrc = iDatasrc;
-          bFound = 1;
-        }
-      }
-  
-      /* Match against any 'AS' alias on the query result */
-      if( bFound==0 && pQuery->zAs ){
-        if( eExpr==XJD1_EXPR_ORDERBY 
-         || eExpr==XJD1_EXPR_HAVING
-         || (eExpr==XJD1_EXPR_WHERE && pQuery->u.simple.pAgg==0)
-        ){
-          if( 0==strcmp(zDoc, pQuery->zAs) ){
-            bFound = 1;
+    case TK_UPDATE:
+      if( 0==strcmp(zDoc, pCmd->u.update.zName) ) return XJD1_OK;
+      break;
+
+    case TK_SELECT: {
+      ResolveCtx *pTest;
+      for(pTest=pCtx; pTest; pTest=pTest->pParent){
+        Query *pQuery = pTest->pQuery;
+        if( pQuery ){
+          int eExpr = pTest->eExpr;
+          int bFound = 0;
+
+          assert( pQuery->eQType==TK_SELECT || eExpr==XJD1_EXPR_ORDERBY );
+          assert( eExpr>0 );
+
+          /* Search the FROM clause. */
+          if( pQuery->eQType==TK_SELECT && (
+                eExpr==XJD1_EXPR_RESULT  || eExpr==XJD1_EXPR_WHERE ||
+                eExpr==XJD1_EXPR_GROUPBY || eExpr==XJD1_EXPR_HAVING ||
+                eExpr==XJD1_EXPR_ORDERBY
+                )){
+            int iDatasrc = xjd1DataSrcResolve(pQuery->u.simple.pFrom, zDoc);
+            if( iDatasrc ){
+              p->u.id.iDatasrc = iDatasrc;
+              bFound = 1;
+            }
+          }
+
+          /* Match against any 'AS' alias on the query result */
+          if( bFound==0 && pQuery->zAs ){
+            if( eExpr==XJD1_EXPR_ORDERBY 
+                || eExpr==XJD1_EXPR_HAVING
+                || (eExpr==XJD1_EXPR_WHERE && pQuery->u.simple.pAgg==0)
+              ){
+              if( 0==strcmp(zDoc, pQuery->zAs) ){
+                bFound = 1;
+              }
+            }
+          }
+
+          if( bFound ){
+            p->u.id.pQuery = pQuery;
+            return XJD1_OK;
           }
         }
       }
-  
-      if( bFound ){
-        p->u.id.pQuery = pQuery;
-        return XJD1_OK;
-      }
+      break;
     }
+
+    default:
+      assert( 0 );
+      break;
   }
 
   xjd1StmtError(pCtx->pStmt, XJD1_ERROR, "no such object: %s", zDoc);
@@ -542,14 +545,13 @@ JsonNode *xjd1ExprEval(Expr *p){
     }
 
     case TK_ID: {
-      if( p->u.id.pDataSrc ){
-        JsonNode *pVal = xjd1DataSrcRead(p->u.id.pDataSrc, 1);
-        pRes = getProperty(pVal, p->u.id.zId);
-        xjd1JsonFree(pVal);
-        return pRes;
-      }else if( p->pQuery ){
+      if( p->u.id.pQuery ){
+        assert( p->pStmt->pCmd->eCmdType==TK_SELECT );
         return xjd1QueryDoc(p->u.id.pQuery, p->u.id.iDatasrc);
       }else{
+        assert( p->pStmt->pCmd->eCmdType==TK_DELETE
+             || p->pStmt->pCmd->eCmdType==TK_UPDATE
+        );
         return xjd1StmtDoc(p->pStmt);
       }
     }

@@ -453,12 +453,22 @@ sel_result(A) ::= expr(X) AS ID(Y).       {A.pExpr=X;A.zAs=tokenStr(p, &Y);}
 %type fromitem {DataSrc*}
 %include {
   /* Create a new data source that is a named table */
-  static DataSrc *tblDataSrc(Parse *p, Token *pTab, Token *pAs){
+  static DataSrc *pathDataSrc(Parse *p, Expr *pPath, Token *pAs){
     DataSrc *pNew = xjd1PoolMallocZero(p->pPool, sizeof(*pNew));
     if( pNew ){
-      pNew->eDSType = TK_ID;
-      pNew->u.tab.zName = tokenStr(p, pTab);
-      pNew->zAs = tokenStr(p, pAs);
+      if( pPath ){
+        if( pPath->eType==TK_ID ){
+          pNew->eDSType = TK_ID;
+          pNew->u.tab.zName = pPath->u.id.zId;
+        }else{
+          pNew->eDSType = TK_DOT;
+          pNew->u.path.pPath = pPath;
+        }
+        pNew->zAs = tokenStr(p, pAs);
+      }else{
+        pNew->eDSType = TK_ID;
+        pNew->u.tab.zName = tokenStr(p,pAs);
+      }
     }
     return pNew;
   }
@@ -520,11 +530,12 @@ from(A) ::= .                                    {A = nullDataSrc(p);}
 from(A) ::= FROM fromlist(X).                    {A = X;}
 fromlist(A) ::= fromitem(X).                     {A = X;}
 fromlist(A) ::= fromlist(X) COMMA fromitem(Y).   {A = joinDataSrc(p,X,Y);}
-fromitem(A) ::= ID(X).                           {A = tblDataSrc(p,&X,0);}
-fromitem(A) ::= ID(X) AS ID(Y).                  {A = tblDataSrc(p,&X,&Y);}
 fromitem(A) ::= LP select(X) RP AS ID(Y).        {A = subqDataSrc(p,X,&Y);}
 
-fromitem(A) ::= fromitem(W) FLATTENOP(X) LP eachexpr(Y) eachalias(Z) RP. {
+fromitem(A) ::= ID(X).                           {A = pathDataSrc(p,0,&X);}
+fromitem(A) ::= path(X) AS ID(Y).                {A = pathDataSrc(p,X,&Y);}
+
+fromitem(A) ::= fromitem(W) FLATTENOP(X) LP path(Y) eachalias(Z) RP. {
   A = flattenDataSrc(p,W,&X,Y,Z);
 }
 
@@ -532,10 +543,10 @@ fromitem(A) ::= fromitem(W) FLATTENOP(X) LP eachexpr(Y) eachalias(Z) RP. {
 eachalias(A) ::= .                 {A=0;}
 eachalias(A) ::= AS ID|STRING(Y).  {A=idExpr(p,&Y);}
 
-%type eachexpr {Expr*}
-eachexpr(A) ::= ID(Y).                           {A = idExpr(p, &Y);        }
-eachexpr(A) ::= eachexpr(X) DOT ID(Y).           {A = lvalueExpr(p, X, &Y); }
-eachexpr(A) ::= eachexpr(X) LB ID|STRING(Y) RB.  {A = lvalueExpr(p, X, &Y); }
+%type path {Expr*}
+path(A) ::= ID(Y).                               {A = idExpr(p, &Y);        }
+path(A) ::= path(X) DOT ID(Y).                   {A = lvalueExpr(p, X, &Y); }
+path(A) ::= path(X) LB ID|STRING(Y) RB.          {A = lvalueExpr(p, X, &Y); }
 
 %type groupby_opt {GroupByHaving}
 groupby_opt(A) ::= .                            {A.pGroupBy=0; A.pHaving=0;}

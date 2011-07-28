@@ -177,13 +177,15 @@ int xjd1QueryInit(
   if( p->eQType==TK_SELECT ){
     rc = xjd1ExprInit(p->u.simple.pRes, pStmt, p, XJD1_EXPR_RESULT, pCtx);
     if( !rc ){
-      rc = xjd1DataSrcInit(p->u.simple.pFrom, p);
+      rc = xjd1DataSrcInit(p->u.simple.pFrom, p, pCtx);
     }
     if( !rc ){
       rc = xjd1ExprInit(p->u.simple.pWhere, pStmt, p, XJD1_EXPR_WHERE, pCtx);
     }
     if( !rc ){
-      rc = xjd1ExprListInit(p->u.simple.pGroupBy, pStmt, p, XJD1_EXPR_GROUPBY, pCtx);
+      rc = xjd1ExprListInit(
+          p->u.simple.pGroupBy, pStmt, p, XJD1_EXPR_GROUPBY, pCtx
+      );
     }
     if( !rc ){
       rc = xjd1ExprInit(p->u.simple.pHaving, pStmt, p, XJD1_EXPR_HAVING, pCtx);

@@ -186,7 +186,6 @@ struct Expr {
       char *zId;               /* token value.  eClass=EXPR_TK */
       int iDatasrc;
       Query *pQuery;
-      DataSrc *pDataSrc;       /* Read property from this datasource */
     } id;
     struct {                /* Function calls.  eClass=EXPR_FUNC */
       char *zFName;            /* Name of the function */
@@ -340,6 +339,11 @@ struct DataSrc {
       sqlite3_stmt *pStmt;     /* Cursor for reading content */
       int eofSeen;             /* True if at EOF */
     } tab;
+    struct {                /* For a named collection.  eDSType==TK_ID */
+      Expr *pPath;             /* Path to correlated variable */
+      JsonNode *pArray;        /* Value to iterate through */
+      int iNext;               /* Index of next value in pValue to return */
+    } path;
     struct {                /* EACH() or FLATTEN().  eDSType==TK_FLATTENOP */
       DataSrc *pNext;          /* Data source to the left */
       char cOpName;            /* 'E' or 'F' for "EACH" or "FLATTEN" */
@@ -400,7 +404,7 @@ void xjd1Unref(xjd1*);
 void xjd1Error(xjd1*,int,const char*,...);
 
 /******************************** datasrc.c **********************************/
-int xjd1DataSrcInit(DataSrc*,Query*);
+int xjd1DataSrcInit(DataSrc*,Query*,void*);
 int xjd1DataSrcRewind(DataSrc*);
 int xjd1DataSrcStep(DataSrc*);
 int xjd1DataSrcClose(DataSrc*);

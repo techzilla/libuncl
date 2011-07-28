@@ -22,13 +22,13 @@
 /*
 ** Called after statement parsing to initalize every DataSrc object.
 */
-int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
+int xjd1DataSrcInit(DataSrc *p, Query *pQuery, void *pOuterCtx){
   int rc = XJD1_OK;
   p->pQuery = pQuery;
   switch( p->eDSType ){
     case TK_COMMA: {
-      xjd1DataSrcInit(p->u.join.pLeft, pQuery);
-      xjd1DataSrcInit(p->u.join.pRight, pQuery);
+      xjd1DataSrcInit(p->u.join.pLeft, pQuery, pOuterCtx);
+      xjd1DataSrcInit(p->u.join.pRight, pQuery, pOuterCtx);
       break;
     }
     case TK_SELECT: {
@@ -43,7 +43,11 @@ int xjd1DataSrcInit(DataSrc *p, Query *pQuery){
       break;
     }
     case TK_FLATTENOP: {
-      xjd1DataSrcInit(p->u.flatten.pNext, pQuery);
+      xjd1DataSrcInit(p->u.flatten.pNext, pQuery, pOuterCtx);
+      break;
+    }
+    case TK_DOT: {
+      rc = xjd1ExprInit(p->u.path.pPath, pQuery->pStmt, 0, 0, pOuterCtx);
       break;
     }
     case TK_NULL:                 /* Initializing a NULL DS is a no-op */
@@ -358,6 +362,7 @@ int xjd1DataSrcStep(DataSrc *p){
       }
       break;
     }
+
     case TK_SELECT: {
       xjd1JsonFree(p->pValue);
       p->pValue = 0;
@@ -365,6 +370,7 @@ int xjd1DataSrcStep(DataSrc *p){
       p->pValue = xjd1QueryDoc(p->u.subq.q, 0);
       break;
     }
+
     case TK_ID: {
       rc = sqlite3_step(p->u.tab.pStmt);
       xjd1JsonFree(p->pValue);
@@ -406,6 +412,26 @@ int xjd1DataSrcStep(DataSrc *p){
         JsonNode *pBase = p->u.flatten.pNext->pValue;
         flattenIterEntry(p->u.flatten.pIter, &pKey, &pValue);
         p->pValue = flattenedObject(pBase, pKey, pValue, p->u.flatten.pAs);
+      }
+
+      break;
+    }
+
+    case TK_DOT: {
+      JsonNode *pArray = p->u.path.pArray;
+
+      xjd1JsonFree(p->pValue);
+      p->pValue = 0;
+
+      if( pArray==0 ){
+        pArray = p->u.path.pArray = xjd1ExprEval(p->u.path.pPath);
+      }
+      if( pArray 
+       && pArray->eJType==XJD1_ARRAY 
+       && p->u.path.iNext<pArray->u.ar.nElem
+      ){
+        rc = XJD1_ROW;
+        p->pValue = xjd1JsonRef(pArray->u.ar.apElem[p->u.path.iNext++]);
       }
 
       break;
@@ -484,6 +510,12 @@ int xjd1DataSrcRewind(DataSrc *p){
       sqlite3_reset(p->u.tab.pStmt);
       break;
     }
+    case TK_DOT: {
+      xjd1JsonFree(p->u.path.pArray);
+      p->u.path.pArray = 0;
+      p->u.path.iNext = 0;
+      break;
+    }
     case TK_FLATTENOP: {
       xjd1DataSrcRewind(p->u.flatten.pNext);
       flattenIterFree(p->u.flatten.pIter);
@@ -511,6 +543,11 @@ int xjd1DataSrcClose(DataSrc *p){
     }
     case TK_FLATTENOP: {
       xjd1DataSrcClose(p->u.flatten.pNext);
+      break;
+    }
+    case TK_DOT: {
+      xjd1JsonFree(p->u.path.pArray);
+      p->u.path.pArray = 0;
       break;
     }
   }

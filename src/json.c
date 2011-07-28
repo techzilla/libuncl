@@ -654,7 +654,10 @@ static JsonNode *parseJson(JsonStr *pIn){
     case JSON_BEGIN_ARRAY: {
       int nAlloc = 0;
       tokenNext(pIn);
-      if( tokenType(pIn)==JSON_END_ARRAY ) break;
+      if( tokenType(pIn)==JSON_END_ARRAY ){
+        tokenNext(pIn);
+        break;
+      }
       while( 1 ){
         if( pNew->u.ar.nElem>=nAlloc ){
           JsonNode **pNewArray;
