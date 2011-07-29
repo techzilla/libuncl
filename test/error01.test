@@ -1,0 +1,17 @@
+-- Test some error messages.
+--
+.new t1.db
+
+.testcase 1
+NOSUCHKEYWORD INSERT INTO c1 VALUE 12345;
+.error SYNTAX syntax error near "INSERT"
+
+.testcase 2
+SELECT INSERT INTO c1 VALUE 12345;
+.error SYNTAX syntax error near "INSERT"
+
+
+
+
+
+
