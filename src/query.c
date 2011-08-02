@@ -298,7 +298,7 @@ static int selectStepGrouped(Query *p){
       if( p->u.simple.grouped.pPool==0 ){
         JsonNode **apSrc;
         int nSrc;
-        int saved = 0;;
+        int saved = 0;
         Pool *pPool;
 
         pPool = p->u.simple.grouped.pPool = xjd1PoolNew();

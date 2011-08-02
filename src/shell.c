@@ -21,9 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <assert.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 /*
 ** Remove n elements from argv beginning with the i-th element.
