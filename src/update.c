@@ -58,13 +58,59 @@ static JsonNode *findStructElement(JsonNode *pBase, const char *zField){
 static JsonNode *findOrCreateJsonNode(JsonNode *pRoot, Expr *p){
   if( p==0 ) return 0;
   switch( p->eType ){
+    /* The x.y operator. Here y must be an identifier, and we use its
+    ** name string. The reference node is property y of object x.
+    */
     case TK_DOT: {
       JsonNode *pBase = findOrCreateJsonNode(pRoot, p->u.lvalue.pLeft);
       return findStructElement(pBase, p->u.lvalue.zId);
     }
+
+    /* The x[y] operator. The result depends on the type of value x.
+    **
+    ** If x is of type XJD1_STRUCT, then expression y is converted to
+    ** a string. The reference node is property y of object x.
+    **
+    ** If x is of type XJD1_ARRAY, then expression y is converted to
+    ** a number. If that number is an integer, then reference node is
+    ** element y of array x. ** TBD: extending array size as needed **
+    **
+    ** If x is of type XJD1_STRING, then it is treated as an array of 
+    ** characters. Processing proceeds as for XJD1_ARRAY. ** TBD **
+    */
     case TK_LB: {
-      return 0;   /* TBD */
+      JsonNode *pBase = findOrCreateJsonNode(pRoot, p->u.bi.pLeft);
+      switch( pBase->eJType ){
+        case XJD1_STRUCT: {
+          JsonNode *pRes;
+          String idx;
+          xjd1StringInit(&idx, 0, 0);
+          xjd1JsonToString(xjd1ExprEval(p->u.bi.pRight), &idx);
+          pRes = findStructElement(pBase, idx.zBuf);
+          xjd1StringClear(&idx);
+          return pRes;
+        }
+
+        case XJD1_ARRAY: {
+          double rRight;
+          int iIdx;
+          if( xjd1JsonToReal(xjd1ExprEval(p->u.bi.pRight), &rRight) ) break;
+          iIdx = (int)rRight;
+          if( (double)iIdx==rRight && iIdx>=0 && iIdx<pBase->u.ar.nElem ){
+            return pBase->u.ar.apElem[iIdx];
+            
+          }
+          break;
+        }
+
+        case XJD1_STRING: {
+          /* TBD */
+          break;
+        }
+      }
     }
+    break;
+      
     case TK_ID: {
       return pRoot;
     }
