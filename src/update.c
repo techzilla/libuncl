@@ -20,13 +20,15 @@
 
 
 /*
-** pBase is a JSON structure object.  Or if it is not, it should be
-** converted into one.  Then lookup or insert the zField element.
+** pBase is a JSON structure object.  If it is not, overwrite the current
+** value with an empty structure object. [[TBD: If it is not, return 0;]]
+** Otherwise, lookup or insert the zField element.
 */
 static JsonNode *findStructElement(JsonNode *pBase, const char *zField){
   JsonStructElem *pElem;
   if( pBase==0 ) return 0;
   if( pBase->eJType!=XJD1_STRUCT ){
+//    return 0;
     xjd1JsonToNull(pBase);
     pBase->eJType = XJD1_STRUCT;
     pBase->u.st.pFirst = 0;
@@ -72,11 +74,13 @@ static JsonNode *findOrCreateJsonNode(JsonNode *pRoot, Expr *p){
     ** a string. The reference node is property y of object x.
     **
     ** If x is of type XJD1_ARRAY, then expression y is converted to
-    ** a number. If that number is an integer, then reference node is
-    ** element y of array x. ** TBD: extending array size as needed **
+    ** a number. If that number is an integer, then the reference node
+    ** is element y of array x. Grow the array as needed.
     **
-    ** If x is of type XJD1_STRING, then it is treated as an array of 
-    ** characters. Processing proceeds as for XJD1_ARRAY. ** TBD **
+    ** If x is of any other type the assignment is silently ignored.
+    ** Note that individual string characters can be read, but not
+    ** written using the x[y] syntax. 
+    ** TBD: should x===null throw an error?
     */
     case TK_LB: {
       JsonNode *pBase = findOrCreateJsonNode(pRoot, p->u.bi.pLeft);
@@ -96,15 +100,33 @@ static JsonNode *findOrCreateJsonNode(JsonNode *pRoot, Expr *p){
           int iIdx;
           if( xjd1JsonToReal(xjd1ExprEval(p->u.bi.pRight), &rRight) ) break;
           iIdx = (int)rRight;
-          if( (double)iIdx==rRight && iIdx>=0 && iIdx<pBase->u.ar.nElem ){
-            return pBase->u.ar.apElem[iIdx];
-            
+          if( (double)iIdx==rRight && iIdx>=0 ){
+            if( iIdx<pBase->u.ar.nElem ){
+              return pBase->u.ar.apElem[iIdx];
+            }else{
+              JsonNode **pNewArray;
+              int i;
+              /* Grow the array as needed. TBD: find a way to handle very
+              ** large, sparse arrays. As a temporary drafting precaution,
+              ** assert that the value of iIdx is less than 1024. 
+              */
+              assert( iIdx<1024 );
+              pNewArray = xjd1_realloc(pBase->u.ar.apElem, sizeof(JsonNode*)*(iIdx+1));
+              if( pNewArray==0 ) break;
+              pBase->u.ar.apElem = pNewArray;
+              for(i=pBase->u.ar.nElem; i<=iIdx; i++) {
+                pNewArray[i] = xjd1JsonNew(0);
+                pNewArray[i]->eJType = XJD1_NULL;
+              }
+              pBase->u.ar.nElem = iIdx+1;
+              return pBase->u.ar.apElem[iIdx];
+            }
           }
           break;
         }
 
-        case XJD1_STRING: {
-          /* TBD */
+        case XJD1_NULL: {
+          /* TBD: throw error? */
           break;
         }
       }

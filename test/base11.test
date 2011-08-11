@@ -1,0 +1,68 @@
+-- Test UPDATE statement
+--
+
+.new t1.db
+CREATE COLLECTION c1;
+INSERT INTO c1 VALUE null;
+INSERT INTO c1 VALUE true;
+INSERT INTO c1 VALUE 1;
+INSERT INTO c1 VALUE "abc";
+INSERT INTO c1 VALUE [1,2,3,4];
+INSERT INTO c1 VALUE {a: 1, b:2, c:3};
+
+.testcase 0
+SELECT FROM c1;
+.json null\
+      true\
+      1\
+      "abc"\
+      [1,2,3,4]\
+      {"a":1,"b":2,"c":3}
+
+-- setting named properties on primitives or
+-- arrays is ignored
+.testcase 1
+UPDATE c1 SET c1.a = 2;
+SELECT FROM c1;
+.json null\
+      true\
+      1\
+      "abc"\
+      [1,2,3,4]\
+      {"a":2,"b":2,"c":3}
+
+-- setting named properties on primitives or
+-- arrays is ignored, also when x[y] syntax is used
+.testcase 2
+UPDATE c1 SET c1["a"] = 3;
+SELECT FROM c1;
+.json null\
+      true\
+      1\
+      "abc"\
+      [1,2,3,4]\
+      {"a":3,"b":2,"c":3}
+
+-- setting number properties on primitives is
+-- ignored, but honoured on arrays and objects
+.testcase 3
+UPDATE c1 SET c1["2"] = 7;
+SELECT FROM c1;
+.json null\
+      true\
+      1\
+      "abc"\
+      [1,2,7,4]\
+      {"a":3,"b":2,"c":3, "2":7}
+
+-- setting number properties on arrays potentially
+-- grows the array, padding skipped elements with null
+.testcase 4
+UPDATE c1 SET c1["7"] = 9;
+SELECT FROM c1;
+.json null\
+      true\
+      1\
+      "abc"\
+      [1,2,7,4,null,null,null,9]\
+      {"a":3,"b":2,"c":3, "2":7, "7":9}

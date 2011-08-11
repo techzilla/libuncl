@@ -389,7 +389,7 @@ static int shellRead(Shell *p, int argc, char **argv){
     char *zNew;
     xjd1StringInit(&newFile, 0, 0);
     if( argv[1][0]=='/' || strcmp(p->zFile,"-")==0 ){
-      xjd1StringAppend(&newFile, argv[1], 0);
+      xjd1StringAppend(&newFile, argv[1], -1);
     }else{
       int i, j;
       for(i=j=0; p->zFile[i]; i++){ if( p->zFile[i]=='/' ) j = i; }
